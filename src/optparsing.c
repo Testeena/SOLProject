@@ -66,9 +66,6 @@ void freeOpt(optNode* node){
 		printf("node->arg = %s\n", node->arg);
 		free(node->arg);
 	}
-	if(node->next != NULL){
-		node->next = NULL;
-	}
 	free(node);
 }
 
@@ -123,7 +120,7 @@ int main(int argc, char* argv[]){
 				break;
 			default:
 				puts("An unknown command was given.");
-				puts("help message:"):
+				puts("help message:");
 		}
 	}
 

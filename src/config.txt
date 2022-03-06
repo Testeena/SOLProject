@@ -6,4 +6,4 @@ NWORKERS=7
 
 SOCKNAME=solsock.sk
 
-LOGFILENAME=log.json
+LOGFILENAME=log.txt

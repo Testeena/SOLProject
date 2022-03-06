@@ -35,7 +35,6 @@ int parseFile(configList* outcome, char* toparse){
 			return -1;
 		}
 		strncpy(toput->name, token, strlen(token));
-		// looking for config value
 		if((token = strtok(NULL, "=")) == NULL){
 			free(toput);
 			return -1;
@@ -59,16 +58,32 @@ void printList(configList* list){
 	}
 }
 
-// free functions!!!
+int freeConfigList(configList* list){
 
-int main(int argc, char const *argv[]){
-	configList* list = malloc(sizeof(configList));
-	parseFile(list, "config.txt");
-	long maxstorage, maxnfiles, nworkers;
-	char* sockname;
-	char* logfilename;
+	while(list->head != NULL){
+		configNode* temp = list->head;
+		list->head = list->head->next;
+		if(temp->name != NULL){
+			free(temp->name);
+		}
+		if(temp->name != NULL){
+			free(temp->value);
+		}
+		if(temp != NULL){
+			free(temp)
+		}
+	}
+
+	if(list != NULL){
+		free(list);
+	}
+	return 1;
+}
+
+int getConfigs(configList* parsed, long maxstorage, long maxnfiles, long nworkers, char* sockname, char* logfilename){
 
 	configNode* temp = list->head;
+
 	char* end = NULL;
 	if((strcmp(temp->name, "MAXSTORAGE") == 0) && strtol(temp->value, &end, 0) > 0){
 		maxstorage = strtol(temp->value, &end, 0);
@@ -113,16 +128,6 @@ int main(int argc, char const *argv[]){
 			perror("couldnt allocate enough memory");
 			return -1;
 		}
-		strncpy(sockname, DEFAULT_LOGFILENAME, strlen(DEFAULT_LOGFILENAME));
+		strncpy(logfilename, DEFAULT_LOGFILENAME, strlen(DEFAULT_LOGFILENAME));
 	}
-
-	printf("maxstorage = %ld\nmaxnfiles = %ld\nnworkers = %ld\nsockname = %s\nlogfilename = %s\n", maxstorage, maxnfiles, nworkers, sockname, logfilename);
-	return 0;
 }
-
-
-
-
-
-
-

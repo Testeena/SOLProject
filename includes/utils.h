@@ -12,6 +12,12 @@
 #include <pthread.h>
 #include <errno.h>
 
+#define DEFAULT_MAXSTORAGE 100000
+#define DEFAULT_MAXNFILES 100
+#define DEFAULT_NWORKERS 10
+#define DEFAULT_SOCKNAME "solsock.sk"
+#define DEFAULT_LOGFILENAME "log.json"
+
 // syscalls returns handlers
 
 #define PERRNOTZERO(v)\
