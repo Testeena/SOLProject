@@ -40,12 +40,43 @@ OptNode* getFirstOpt(OptList* list){
 	}
 }
 
+OptNode* getdnode(OptList* list){
+	if(list == NULL){
+		return NULL;
+	}
+	else{
+		OptNode* temp = list->head;
+		while(temp->next->opt != 'd' && temp != NULL){
+			temp = temp->next;
+		}
+		OptNode* toreturn = temp->next;
+		temp->next = temp->next->next;
+		return toreturn;
+	}
+} 
+
+OptNode* getDnode(OptList* list){
+	if(list == NULL){
+		return NULL;
+	}
+	else{
+		OptNode* temp = list->head;
+		while(temp->next->opt != 'D' && temp != NULL){
+			temp = temp->next;
+		}
+		OptNode* toreturn = temp->next;
+		temp->next = temp->next->next;
+		return toreturn;
+	}
+}
+
 void printOpts(OptList* list){
 	OptNode* temp = list->head;
 	while(temp != NULL){
-		printf("opt: %c, args: %s\n", temp->opt, temp->arg);
+		printf("%c->", temp->opt);
 		temp = temp->next;
 	}
+	puts("NULL");
 }
 
 OptList* newOptList(void){

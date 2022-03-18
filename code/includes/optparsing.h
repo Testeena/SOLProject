@@ -24,6 +24,8 @@ typedef struct optlist{
 OptList* newOptList(void);
 int putOpt(OptList* list, char opt, char* args);
 OptNode* getFirstOpt(OptList* list);
+OptNode* getdnode(OptList* list);
+OptNode* getDnode(OptList* list);
 void printOpts(OptList* list);
 void freeOptNode(OptNode* node);
 void freeOptList(OptList* list);
