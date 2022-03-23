@@ -40,7 +40,7 @@ int freeRequestQueue(RequestQueue* queue){
 }
 
 
-int putRequest(RequestQueue* queue, int fd){
+int putRequestor(RequestQueue* queue, int fd){
 
 	if(queue == NULL){
 		errno = EINVAL;
@@ -79,7 +79,7 @@ int putRequest(RequestQueue* queue, int fd){
 	return 0;
 }
 
-int getRequest(RequestQueue* queue){
+int getRequestor(RequestQueue* queue){
 
 	if(queue == NULL){
 		errno = EINVAL;
@@ -121,7 +121,7 @@ void printqueue(RequestQueue* queue){
 	puts("NULL");
 
 }
-
+/*
 int main(int argc, char const *argv[]){
 	
 	RequestQueue* queue = newRequestQueue(5);
@@ -140,7 +140,7 @@ int main(int argc, char const *argv[]){
 	return 0;
 }
 
-
+*/
 
 
 

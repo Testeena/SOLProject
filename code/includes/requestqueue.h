@@ -35,5 +35,5 @@ typedef struct requestqueue{
 
 RequestQueue* newRequestQueue(int maxsize);
 int freeRequestQueue(RequestQueue* queue);
-int putRequest(RequestQueue* queue, int fd);
-int getRequest(RequestQueue* queue);
+int putRequestor(RequestQueue* queue, int fd);
+int getRequestor(RequestQueue* queue);

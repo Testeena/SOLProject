@@ -73,7 +73,7 @@ OptNode* getDnode(OptList* list){
 void printOpts(OptList* list){
 	OptNode* temp = list->head;
 	while(temp != NULL){
-		printf("%c->", temp->opt);
+		printf("%c:%s->", temp->opt, temp->arg);
 		temp = temp->next;
 	}
 	puts("NULL");
@@ -112,3 +112,4 @@ void freeOptList(OptList* list){
 		free(list);
 	}
 }
+
