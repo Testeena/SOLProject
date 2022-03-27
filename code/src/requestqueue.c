@@ -32,9 +32,9 @@ int freeRequestQueue(RequestQueue* queue){
 		free(temp);
 	}
 
-	PERRNOTZERO(pthread_cond_destroy(&queue->empty));
-	PERRNOTZERO(pthread_cond_destroy(&queue->full));
-	PERRNOTZERO(pthread_mutex_destroy(&queue->queuemtx));
+	PERRNOTZERO(pthread_cond_destroy(&(queue->empty)));
+	PERRNOTZERO(pthread_cond_destroy(&(queue->full)));
+	PERRNOTZERO(pthread_mutex_destroy(&(queue->queuemtx)));
 	free(queue);
 	return 0;
 }
