@@ -8,21 +8,27 @@ int addFile(FileList* flist, File* file){
 		}
 	}
 	else{
+
+		File* toadd;
+		if((toadd = newcommsFile(file->path, file->data)) == NULL){
+			return -1;
+		}
+
 		if(flist->head == flist->tail == NULL){
-			flist->head = flist->tail = file;
+			flist->head = flist->tail = toadd;
 			flist->size++;
 			return 0;
 		}
 		else{
 			if(flist->head == flist->tail){
-				flist->head->next = file;
-				flist->tail = file;
+				flist->head->next = toadd;
+				flist->tail = toadd;
 				flist->size++;
 				return 0;
 			}
 			else{
-				flist->tail->next = file;
-				flist->tail = file;
+				flist->tail->next = toadd;
+				flist->tail = toadd;
 				flist->size++;
 				return 0;
 			}

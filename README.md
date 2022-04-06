@@ -1,2 +1,2 @@
 # SOLProject
-SOL Multithreaded Storage Server Project
+Multithreaded Storage Server Project for Sistemi Operativi e Laboratorio UNIPI course

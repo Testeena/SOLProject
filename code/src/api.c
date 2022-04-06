@@ -130,6 +130,8 @@ int openFile(const char* pathname, int flags){
 	printResult(req, res);
 	freeRequest(req);
 	freeResponse(res);
+
+	// check on responsecode and return correct value !!!!!!!
 	return 0;
 }
 
