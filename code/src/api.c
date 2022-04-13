@@ -41,9 +41,19 @@ void printResult(Request* req, Response* res){
 		printf(" Client PID: %d\n", getpid());
 		printf(" Request: %s\n", stringifyCode(req->code));
 		if(req->code != REQ_READN){
-			printf(" of file: %s\n", req->path);
+			printf("\tof file: %s\n", req->path);
 		}
-		printf(" Response: %s\n", stringifyCode(res->code));
+		printf(" Response: ");
+		if(res->code == RES_OK){
+			printf(GREEN);
+		}
+		else if(res->code == RES_ALREADYEXISTS){
+			printf(YELLOW);
+		}
+		else{
+			printf(RED);
+		}
+		printf("%s\n" RESET, stringifyCode(res->code));
 	}
 }
 

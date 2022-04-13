@@ -91,6 +91,7 @@ int addFilepath(FilepathList* list , char* filepath);
 int popFilepathList(FilepathList* list, char* poppedpath);
 int deleteFilepathNode(FilepathList* list, char* path);
 int freeFilepathList(FilepathList* list);
+void printFilepaths(FilepathList* list);
 
 Storage* newStorage(int maxfiles, int maxsize);
 int freeStorage(Storage* storage);
