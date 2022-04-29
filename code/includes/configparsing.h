@@ -27,6 +27,7 @@ typedef struct configlist{
 
 int parseFile(configList* outcome, char* toparse);
 int putConfig(configList* list, configNode* toput);
+void getConfigs(configList* parsed, long* maxstorage, long* maxnfiles, long* nworkers, char** sockname, char** logfilename);
 int freeConfigList(configList* list);
 
 #endif

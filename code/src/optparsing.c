@@ -28,12 +28,11 @@ int putOpt(OptList* list, char opt, char* args){
 }
 
 OptNode* getFirstOpt(OptList* list){
-	OptNode* toreturn;
 	if(list->head == NULL){
-		toreturn = NULL;
-		return toreturn;
+		return NULL;
 	}
 	else{
+		OptNode* toreturn;
 		toreturn = list->head;
 		list->head = list->head->next;
 		return toreturn;
@@ -41,13 +40,16 @@ OptNode* getFirstOpt(OptList* list){
 }
 
 OptNode* getdnode(OptList* list){
-	if(list == NULL){
+	if(list == NULL || list->head == NULL){
 		return NULL;
 	}
 	else{
 		OptNode* temp = list->head;
-		while(temp->next->opt != 'd' && temp != NULL){
+		while(temp != NULL && temp->next->opt != 'd'){
 			temp = temp->next;
+		}
+		if(temp == NULL){
+			return NULL;
 		}
 		OptNode* toreturn = temp->next;
 		temp->next = temp->next->next;
@@ -56,13 +58,16 @@ OptNode* getdnode(OptList* list){
 } 
 
 OptNode* getDnode(OptList* list){
-	if(list == NULL){
+	if(list == NULL || list->head == NULL){
 		return NULL;
 	}
 	else{
 		OptNode* temp = list->head;
-		while(temp->next->opt != 'D' && temp != NULL){
+		while(temp != NULL && temp->next->opt != 'D'){
 			temp = temp->next;
+		}
+		if(temp == NULL){
+			return NULL;
 		}
 		OptNode* toreturn = temp->next;
 		temp->next = temp->next->next;
@@ -73,7 +78,7 @@ OptNode* getDnode(OptList* list){
 void printOpts(OptList* list){
 	OptNode* temp = list->head;
 	while(temp != NULL){
-		printf("%c:%s->", temp->opt, temp->arg);
+		printf("%c:%s -> ", temp->opt, temp->arg);
 		temp = temp->next;
 	}
 	puts("NULL");
@@ -91,12 +96,8 @@ OptList* newOptList(void){
 }
 
 void freeOptNode(OptNode* node){
-	if(node->arg != NULL){
-		free(node->arg);
-	}
-	if(node != NULL){
-		free(node);
-	}
+	free(node->arg);
+	free(node);
 }
 
 void freeOptList(OptList* list){

@@ -70,7 +70,7 @@ int freeConfigList(configList* list){
 			free(temp->value);
 		}
 		if(temp != NULL){
-			free(temp)
+			free(temp);
 		}
 	}
 
@@ -80,54 +80,58 @@ int freeConfigList(configList* list){
 	return 1;
 }
 
-int getConfigs(configList* parsed, long maxstorage, long maxnfiles, long nworkers, char* sockname, char* logfilename){
+void getConfigs(configList* parsed, long* maxstorage, long* maxnfiles, long* nworkers, char** sockname, char** logfilename){
 
-	configNode* temp = list->head;
+	configNode* temp = parsed->head;
 
 	char* end = NULL;
 	if((strcmp(temp->name, "MAXSTORAGE") == 0) && strtol(temp->value, &end, 0) > 0){
-		maxstorage = strtol(temp->value, &end, 0);
+		*maxstorage = strtol(temp->value, &end, 0); 
 	} else{
-		maxstorage = DEFAULT_MAXSTORAGE;
+		*maxstorage = DEFAULT_MAXSTORAGE;
 	}
+
 	temp = temp->next;
 	if((strcmp(temp->name, "MAXNFILES") == 0) && strtol(temp->value, &end, 0) > 0){
-		maxnfiles = strtol(temp->value, &end, 0);
+		*maxnfiles = strtol(temp->value, &end, 0);
 	} else{
-		maxnfiles = DEFAULT_MAXNFILES;
+		*maxnfiles = DEFAULT_MAXNFILES;
 	}
+
 	temp = temp->next;
 	if((strcmp(temp->name, "NWORKERS") == 0) && strtol(temp->value, &end, 0) > 0){
-		nworkers = strtol(temp->value, &end, 0);
+		*nworkers = strtol(temp->value, &end, 0);
 	} else{
-		nworkers = DEFAULT_NWORKERS;
+		*nworkers = DEFAULT_NWORKERS;
 	}
+
 	temp = temp->next;
 	if((strcmp(temp->name, "SOCKNAME") == 0)){
-		if((sockname = malloc(strlen(temp->value) * sizeof(char))) == NULL){
+		if((*sockname = (char*)malloc(strlen(temp->value) * sizeof(char))) == NULL){
 			perror("couldnt allocate enough memory");
-			return -1;
+			return;
 		}
-		strncpy(sockname, temp->value, strlen(temp->value));
+		strncpy(*sockname, temp->value, strlen(temp->value));
 	} else{
-		if((sockname = malloc(strlen(DEFAULT_SOCKNAME) * sizeof(char))) == NULL){
+		if((*sockname = (char*)malloc(strlen(DEFAULT_SOCKNAME) * sizeof(char))) == NULL){
 			perror("couldnt allocate enough memory");
-			return -1;
+			return;
 		}
-		strncpy(sockname, DEFAULT_SOCKNAME, strlen(DEFAULT_SOCKNAME));
+		strncpy(*sockname, DEFAULT_SOCKNAME, strlen(DEFAULT_SOCKNAME));
 	}
+
 	temp = temp->next;
 	if((strcmp(temp->name, "LOGFILENAME") == 0)){
-		if((logfilename = malloc(strlen(temp->value) * sizeof(char))) == NULL){
+		if((*logfilename = (char*)malloc(strlen(temp->value) * sizeof(char))) == NULL){
 			perror("couldnt allocate enough memory");
-			return -1;
+			return;
 		}
-		strncpy(logfilename, temp->value, strlen(temp->value));
+		strncpy(*logfilename, temp->value, strlen(temp->value));
 	} else{
-		if((logfilename = malloc(strlen(DEFAULT_LOGFILENAME) * sizeof(char))) == NULL){
+		if((*logfilename = (char*)malloc(strlen(DEFAULT_LOGFILENAME) * sizeof(char))) == NULL){
 			perror("couldnt allocate enough memory");
-			return -1;
+			return;
 		}
-		strncpy(logfilename, DEFAULT_LOGFILENAME, strlen(DEFAULT_LOGFILENAME));
+		strncpy(*logfilename, DEFAULT_LOGFILENAME, strlen(DEFAULT_LOGFILENAME));
 	}
 }

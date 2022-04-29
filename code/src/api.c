@@ -1,9 +1,7 @@
 #include "../includes/api.h"
 #include "../includes/comms.h"
 
-bool verbose = false;
-
-int saveFiles(const char* dirname, FileList* flist){
+int saveFiles(char* dirname, FileList* flist){
 	char* dirpath;
 	if((dirpath = calloc(MAX_PATH, sizeof(char))) == NULL){
 		return -1;
@@ -14,9 +12,9 @@ int saveFiles(const char* dirname, FileList* flist){
 		strcat(dirname, "/");
 	}
 
-	while(res->flist->size > 0){
+	while(flist->size > 0){
 		File* temp;
-		temp = popFile(res->flist);
+		temp = popFile(flist);
 		// could return NULL (?)
 		char dirpathcopy[strlen(dirpath)+1];
 		strncpy(dirpathcopy, dirpath, strlen(dirpath));
@@ -38,12 +36,17 @@ int saveFiles(const char* dirname, FileList* flist){
 
 void printResult(Request* req, Response* res){
 	if(verbose){
+		puts("--------------------------------------------------------------------------------------------------------");
 		printf(" Client PID: %d\n", getpid());
-		printf(" Request: %s\n", stringifyCode(req->code));
-		if(req->code != REQ_READN){
-			printf("\tof file: %s\n", req->path);
+		printf("    Request: %s\n", stringifyCode(req->code));
+		if(req->code == REQ_OPEN){
+			printf("    Flags:   %s\n", stringifyFlags(req->flags));
 		}
-		printf(" Response: ");
+		if(req->code != REQ_READN && req->code != REQ_EXIT){
+			printf("    of file: %s\n", req->path);
+		}
+		printf("   Response: ");
+
 		if(res->code == RES_OK){
 			printf(GREEN);
 		}
@@ -54,6 +57,7 @@ void printResult(Request* req, Response* res){
 			printf(RED);
 		}
 		printf("%s\n" RESET, stringifyCode(res->code));
+		puts("--------------------------------------------------------------------------------------------------------");
 	}
 }
 
@@ -79,7 +83,6 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
 		fprintf(stderr, "Unable to connect to requested socked, trying again in %d ms.", msec);
 		usleep(1000 * msec);
 	}
-
 	return socketfd;
 }
 
@@ -100,14 +103,17 @@ int closeConnection(const char* sockname){
 	}
 
 	Response* res;
-	if(getResponse(socketfd, res) == -1){
+	if((res = malloc(sizeof(Response))) == NULL){
 		return -1;
 	}
 
+	if(getResponse(socketfd, res) == -1){
+		return -1;
+	}
 	printResult(req, res);
 
 	if(res->code == RES_OK){
-		if(close(sockname) == -1){
+		if(close(socketfd) == -1){
 			return -1;
 		}
 	}
@@ -123,7 +129,7 @@ int openFile(const char* pathname, int flags){
 	}
 
 	Request* req;
-	if((req = newRequest(REQ_OPEN, flags, 0, strlen(pathname), 0, pathname, NULL)) == NULL){
+	if((req = newRequest(REQ_OPEN, flags, 0, strlen(pathname), 0, (char*)pathname, NULL)) == NULL){
 		errno = ENOMEM;
 		return -1;
 	}
@@ -133,27 +139,34 @@ int openFile(const char* pathname, int flags){
 	}
 
 	Response* res;
+	if((res = malloc(sizeof(Response))) == NULL){
+		return -1;
+	}
+
 	if(getResponse(socketfd, res) == -1){
 		return -1;
 	}
 
 	printResult(req, res);
-	freeRequest(req);
-	freeResponse(res);
+	//freeRequest(req);
 
 	// check on responsecode and return correct value !!!!!!!
+	if(res->code != RES_OK){
+		return 1;
+	}
+
 	return 0;
 }
 
 int readFile(const char* pathname, void** buf, size_t* size){
 
-	if(pathname == NULL || !strlen(pathname) || buf != NULL || size == NULL){
+	if(pathname == NULL || strlen(pathname) == 0){
 		errno = EINVAL;
 		return -1;
 	}
 
 	Request* req;
-	if((req = newRequest(REQ_READ, 0, 0, strlen(pathname), 0, pathname, NULL)) == NULL){
+	if((req = newRequest(REQ_READ, 0, 0, strlen(pathname), 0, (char*)pathname, NULL)) == NULL){
 		errno = ENOMEM;
 		return -1;
 	}
@@ -163,6 +176,10 @@ int readFile(const char* pathname, void** buf, size_t* size){
 	}
 
 	Response* res;
+	if((res = malloc(sizeof(Response))) == NULL){
+		return -1;
+	}
+
 	if(getResponse(socketfd, res) == -1){
 		return -1;
 	}
@@ -174,7 +191,10 @@ int readFile(const char* pathname, void** buf, size_t* size){
 		*buf = res->flist->head->file->data;
 	}
 	freeRequest(req);
-	freeResponse(res);
+	if(res->code != RES_OK){
+		return 1;
+	}
+
 	return 0;
 }
 
@@ -196,6 +216,11 @@ int readNFiles(int N, const char* dirname){
 	}
 
 	Response* res;
+
+	if((res = malloc(sizeof(Response))) == NULL){
+		return -1;
+	}
+
 	if(getResponse(socketfd, res) == -1){
 		return -1;
 	}
@@ -209,20 +234,20 @@ int readNFiles(int N, const char* dirname){
 			}
 		}
 		else{
-			saveFiles(dirname, res->flist);
+			saveFiles((char*)dirname, res->flist);
 		}
 	}
 	else{
 		printResult(req,res);
 	}
 	freeRequest(req);
-	freeResponse(res);
 	return 0;
 }
 
 int writeFile(const char* pathname, const char* dirname){
 
-	if(pathname == NULL || dirname == NULL || strlen(pathname) == 0 || strlen(dirname) == 0){
+
+	if(pathname == NULL || strlen(pathname) == 0){
 		errno = EINVAL;
 		return -1;
 	}
@@ -245,18 +270,18 @@ int writeFile(const char* pathname, const char* dirname){
     rewind(file);
 
     char* data;
-    if((data = malloc(datalen * sizeof(char)) == NULL){
+    if(((data = malloc(datalen * sizeof(char))) == NULL)){
     	return -1;
     }
 
-    if(fread(data, sizeof(char), datalen, file) != datalen)){
+    if(((fread(data, sizeof(char), datalen, file)) != datalen)){
     	free(data);
     	return -1;
     }
     fclose(file);
 
 	Request* req;
-	if((req = newRequest(REQ_WRITE, 0, 0, strlen(pathname), datalen, pathname, data)) == NULL){
+	if((req = newRequest(REQ_WRITE, 0, 0, strlen(pathname), datalen, (char*)pathname, data)) == NULL){
 		errno = ENOMEM;
 		return -1;
 	}
@@ -266,6 +291,11 @@ int writeFile(const char* pathname, const char* dirname){
 	}
 
 	Response* res;
+
+	if((res = malloc(sizeof(Response))) == NULL){
+		return -1;
+	}
+
 	if(getResponse(socketfd, res) == -1){
 		return -1;
 	}
@@ -279,14 +309,14 @@ int writeFile(const char* pathname, const char* dirname){
 			}
 		}
 		else{
-			saveFiles(dirname, res->flist);
+			printf("going to saveFiles...\n");
+			saveFiles((char*)dirname, res->flist);
 		}
 	}
 	else{
 		printResult(req,res);
 	}
 	freeRequest(req);
-	freeResponse(res);
 	return 0;
 }
 
@@ -294,13 +324,13 @@ int writeFile(const char* pathname, const char* dirname){
 // N.B. non sono possibili sovrascritture dei dati salvati (necessaria cancellazione e ri-craezione)
 int appendToFile(const char* pathname, void* buf, size_t size, const char* dirname){
 
-	if(pathname == NULL || buf == NULL || size == 0 || strlen(pathname) == 0 || strlen(dirname) == 0){
+	if(pathname == NULL || buf == NULL || size == 0 || strlen(pathname) == 0){
 		errno = EINVAL;
 		return -1;
 	}
 
 	Request* req;
-	if((req = newRequest(REQ_APPEND, 0, 0, strlen(pathname), size, pathname, buf)) == NULL){
+	if((req = newRequest(REQ_APPEND, 0, 0, strlen(pathname), size, (char*)pathname, buf)) == NULL){
 		errno = ENOMEM;
 		return -1;
 	}
@@ -310,6 +340,11 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
 	}
 
 	Response* res;
+
+	if((res = malloc(sizeof(Response))) == NULL){
+		return -1;
+	}
+
 	if(getResponse(socketfd, res) == -1){
 		return -1;
 	}
@@ -323,14 +358,13 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
 			}
 		}
 		else{
-			saveFiles(dirname, res->flist);
+			saveFiles((char*)dirname, res->flist);
 		}
 	}
 	else{
 		printResult(req,res);
 	}
 	freeRequest(req);
-	freeResponse(res);
 	return 0;
 }
 
@@ -341,7 +375,7 @@ int lockFile(const char* pathname){
 	}
 
 	Request* req;
-	if((req = newRequest(REQ_LOCK, 0, 0, strlen(pathname), 0, pathname, NULL)) == NULL){
+	if((req = newRequest(REQ_LOCK, 0, 0, strlen(pathname), 0, (char*)pathname, NULL)) == NULL){
 		errno = ENOMEM;
 		return -1;
 	}
@@ -358,7 +392,6 @@ int lockFile(const char* pathname){
 	printResult(req, res);
 
 	freeRequest(req);
-	freeResponse(res);
 	return 0;
 	
 }
@@ -370,7 +403,7 @@ int unlockFile(const char* pathname){
 	}
 
 	Request* req;
-	if((req = newRequest(REQ_UNLOCK, 0, 0, strlen(pathname), 0, pathname, NULL)) == NULL){
+	if((req = newRequest(REQ_UNLOCK, 0, 0, strlen(pathname), 0, (char*)pathname, NULL)) == NULL){
 		errno = ENOMEM;
 		return -1;
 	}
@@ -380,6 +413,11 @@ int unlockFile(const char* pathname){
 	}
 
 	Response* res;
+
+	if((res = malloc(sizeof(Response))) == NULL){
+		return -1;
+	}
+
 	if(getResponse(socketfd, res) == -1){
 		return -1;
 	}
@@ -387,7 +425,6 @@ int unlockFile(const char* pathname){
 	printResult(req, res);
 
 	freeRequest(req);
-	freeResponse(res);
 	return 0;
 }
 
@@ -399,7 +436,7 @@ int closeFile(const char* pathname){
 	}
 
 	Request* req;
-	if((req = newRequest(REQ_CLOSE, 0, 0, strlen(pathname), 0, pathname, NULL)) == NULL){
+	if((req = newRequest(REQ_CLOSE, 0, 0, strlen(pathname), 0, (char*)pathname, NULL)) == NULL){
 		errno = ENOMEM;
 		return -1;
 	}
@@ -409,14 +446,18 @@ int closeFile(const char* pathname){
 	}
 
 	Response* res;
+
+	if((res = malloc(sizeof(Response))) == NULL){
+		return -1;
+	}
+
 	if(getResponse(socketfd, res) == -1){
 		return -1;
 	}
 
 	printResult(req, res);
 
-	freeRequest(req);
-	freeResponse(res);
+	//freeRequest(req);
 	return 0;
 }
 
@@ -432,7 +473,7 @@ int removeFile(const char* pathname){
 	}
 
 	Request* req;
-	if((req = newRequest(REQ_REMOVE, 0, 0, strlen(pathname), 0, pathname, NULL)) == NULL){
+	if((req = newRequest(REQ_REMOVE, 0, 0, strlen(pathname), 0, (char*)pathname, NULL)) == NULL){
 		errno = ENOMEM;
 		return -1;
 	}
@@ -442,6 +483,11 @@ int removeFile(const char* pathname){
 	}
 
 	Response* res;
+
+	if((res = malloc(sizeof(Response))) == NULL){
+		return -1;
+	}
+
 	if(getResponse(socketfd, res) == -1){
 		return -1;
 	}
@@ -449,7 +495,6 @@ int removeFile(const char* pathname){
 	printResult(req, res);
 
 	freeRequest(req);
-	freeResponse(res);
 	return 0;
 }
 

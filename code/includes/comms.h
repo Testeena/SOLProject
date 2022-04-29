@@ -2,6 +2,7 @@
 #define COMMS_H
 
 #include "storage.h"
+#include "utils.h"
 
 // openFile flags
 #define O_NONE	 0
@@ -71,5 +72,8 @@ int sendResponse(int sockfd, Response* response);
 int getRequest(int sockfd, Request* request);
 int getResponse(int sockfd, Response* response);
 char* stringifyCode(int code);
+char* stringifyFlags(int flags);
+void printRequest(Request* req);
+void printResponse(Response* res);
 
 #endif

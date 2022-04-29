@@ -2,6 +2,10 @@
 
 int addFile(FileList* flist, File* file){
 
+	if(file == NULL){
+		return 0;
+	}
+
 	if(flist == NULL){
 		if((flist = malloc(sizeof(FileList))) == NULL){
 			return -1;
@@ -14,26 +18,27 @@ int addFile(FileList* flist, File* file){
 			return -1;
 		}
 
-		if(flist->head == flist->tail == NULL){
-			flist->head = flist->tail = toadd;
+		if(flist->head == NULL && flist->tail == NULL){
+			flist->head->file = flist->tail->file = toadd;
 			flist->size++;
 			return 0;
 		}
 		else{
 			if(flist->head == flist->tail){
-				flist->head->next = toadd;
-				flist->tail = toadd;
+				flist->head->next->file = toadd;
+				flist->tail->file = toadd;
 				flist->size++;
 				return 0;
 			}
 			else{
-				flist->tail->next = toadd;
-				flist->tail = toadd;
+				flist->tail->next->file = toadd;
+				flist->tail->file = toadd;
 				flist->size++;
 				return 0;
 			}
 		}
 	}
+	return -1;
 }
 
 File* popFile(FileList* flist){
@@ -54,6 +59,8 @@ int freeFileList(FileList* flist){
 	while(flist->head != NULL){
 		FileNode* temp = flist->head;
 		flist->head = flist->head->next;
+		printf("flist->head == NULL? %d\n", flist->head == NULL);
+		printf("going to free: %s\n", temp->file->path);
 		freeFile(temp->file);
 		free(temp);
 	}
@@ -103,10 +110,8 @@ Response* newResponse(int code, FileList* flist){
 	toreturn->code = code;
 
 	if(flist == NULL){
-		if((toreturn->flist = malloc(sizeof(FileList))) == NULL){
-			free(toreturn);
-			return NULL;
-		}
+		toreturn->flistsize = 0;
+		toreturn->flist = NULL;
 	}
 	else{
 		toreturn->flist = flist;
@@ -116,10 +121,12 @@ Response* newResponse(int code, FileList* flist){
 }
 
 int freeRequest(Request* request){
-	if(request != NULL){
-		freeFile(request->file);
+	if(request->path){
+		free(request->path);
 	}
-	free(request->file);
+	if(request->data){
+		free(request->data);
+	}
 	free(request);
 	return 0;
 }
@@ -128,12 +135,14 @@ int freeResponse(Response* response){
 	if(response != NULL){
 		freeFileList(response->flist);
 	}
+	puts("finished freeing response->flist");
 	free(response->flist);
 	free(response);
 	return 0;
 }
 
 int sendRequest(int sockfd, Request* request){
+
 	if(request == NULL){
 		errno = EINVAL;
 		return -1;
@@ -143,18 +152,19 @@ int sendRequest(int sockfd, Request* request){
 		return -1;
 	}
 
-	if(request->pathlen){
+	if(request->pathlen > 0){
 		if(writen(sockfd, request->path, request->pathlen) == -1){
 			return -1;
 		}
 	}
 
-	if(request->datasize){
+	if(request->datasize > 0){
 		if(writen(sockfd, request->data, request->datasize) == -1){
 			return -1;
 		}
 	}
-
+	printf(YELLOW "comms:" RESET);
+	printf(" Sent %d:%s Request.\n", request->code, stringifyCode(request->code));
 	return 0;
 }
 
@@ -168,10 +178,8 @@ int sendResponse(int sockfd, Response* response){
 	if(write(sockfd, response, sizeof(Response)) == -1){
 		return -1;
 	}
-
-	if(response->flist != NULL){
-		FileList* temp = flist->head;
-		// maybe cycle with flistsize?
+	if(response->flistsize > 0){
+		FileNode* temp = response->flist->head;
 		while(temp != NULL){
 			if(write(sockfd, temp->file, sizeof(File)) == -1){
 				return -1;
@@ -184,23 +192,27 @@ int sendResponse(int sockfd, Response* response){
 			if(writen(sockfd, temp->file->data, temp->file->datasize) == -1){
 				return -1;
 			}
-
 			temp = temp->next;
 		}
 	}
+	printf(YELLOW "comms:" RESET);
+	printf(" Sent %d:%s Response\n", response->code, stringifyCode(response->code));
 	return 0;
 }
 
 int getRequest(int sockfd, Request* request){
-	if((request = malloc(sizeof(Request))) == NULL){
-		return -1;
-	}
 
 	if(read(sockfd, request, sizeof(Request)) == -1){
 		return -1;
 	}
-
+	printf(YELLOW "comms:" RESET);
+	printf(" Got %d:%s Request.\n", request->code, stringifyCode(request->code));
 	if(request->pathlen > 0){
+
+		if((request->path = malloc(request->pathlen * sizeof(char))) == NULL){
+			return -1;
+		}
+
 		if(readn(sockfd, request->path, request->pathlen) == -1){
 			return -1;
 		}
@@ -210,6 +222,11 @@ int getRequest(int sockfd, Request* request){
 	}
 
 	if(request->datasize > 0){
+
+		if((request->data = malloc(request->datasize * sizeof(char))) == NULL){
+			return -1;
+		}
+
 		if(readn(sockfd, request->data, request->datasize) == -1){
 			return -1;
 		}
@@ -217,81 +234,128 @@ int getRequest(int sockfd, Request* request){
 	else{
 		request->data = NULL;
 	}
+	
 	return 0;
 }
 
 int getResponse(int sockfd, Response* response){
-	if((response = malloc(sizeof(Response))) == NULL){
-		return -1;
-	}
 
 	if(read(sockfd, response, sizeof(Response)) == -1){
 		return -1;
 	}
+	
+	if(response->flistsize > 0){
+		File* toget;
+		if((toget = malloc(sizeof(File))) == NULL){
+			return -1;
+		}
 
+		for (int i = 0; i < response->flistsize; i++){
+			
+			if(read(sockfd, toget, sizeof(File)) == -1){
+				return -1;
+			}
+			
+			if((toget->path = malloc(toget->pathlen * sizeof(char))) == NULL){
+				return -1;
+			}
 
-	File* toget;
-	if((toget = malloc(sizeof(File))) == NULL){
-		return -1;
+			if(readn(sockfd, toget->path, toget->pathlen) == -1){
+				return -1;
+			}
+
+			if((toget->data = malloc(toget->datasize * sizeof(char))) == NULL){
+				return -1;
+			}
+
+			if(readn(sockfd, toget->data, toget->datasize) == -1){
+				return -1;
+			}
+			// use temp variables + newfile instead?
+			addFile(response->flist, toget);
+		}
 	}
-
-	for (int i = 0; i < response->flistsize; i++){
-		
-		if(read(sockfd, toget, sizeof(File)) == -1){
-			return -1;
-		}
-
-		if(readn(sockfd, toget->path, toget->pathlen) == -1){
-			return -1;
-		}
-
-		if(readn(sockfd, toget->data, toget->datasize) == -1){
-			return -1;
-		}
-		// use temp variables + newfile instead?
-		addFile(response->flist, toget);
-	}
-
+	printf(YELLOW "comms:" RESET);
+	printf(" Got %d:%s Response.\n", response->code, stringifyCode(response->code));
 	return 0;
+}
+
+char* stringifyFlags(int flags){
+	switch(flags){
+		case O_NONE:
+			return "O_NONE";
+		case O_CREATE:
+			return "O_CREATE";
+		case O_LOCK:
+			return "O_LOCK";
+		case O_BOTH:
+			return "O_BOTH";
+	}
+	return "UNKNOWN";
 }
 
 char* stringifyCode(int code){
 	switch(code){
 		case RES_OK:
-			return "OK"
+			return "OK";
 		case RES_DENIED:
-			return "DENIED"
+			return "DENIED";
 		case RES_BADREQ:
-			return "BADREQ"
+			return "BADREQ";
 		case RES_NOTFOUND:
-			return "NOTFOUND"
+			return "NOTFOUND";
 		case RES_ALREADYEXISTS:
-			return "ALREADYEXISTS"
+			return "ALREADYEXISTS";
 		case RES_NOMEM:
-			return "NOMEM"
+			return "NOMEM";
 		case REQ_OPEN:
-			return "OPEN"
+			return "OPEN";
 		case REQ_CLOSE:
-			return "CLOSE"
+			return "CLOSE";
 		case REQ_READ:
-			return "READ"
+			return "READ";
 		case REQ_READN:
-			return "READN"
+			return "READN";
 		case REQ_WRITE:
-			return "WRITE"
+			return "WRITE";
 		case REQ_APPEND:
-			return "APPEND"
+			return "APPEND";
 		case REQ_REMOVE:
-			return "REMOVE"
+			return "REMOVE";
 		case REQ_LOCK:
-			return "LOCK"
+			return "LOCK";
 		case REQ_UNLOCK:
-			return "UNLOCK"
+			return "UNLOCK";
+		case REQ_EXIT:
+			return "EXIT";
 	}
 	return "UNKNOWN";
 }
 
+void printRequest(Request* req){
+	if(req == NULL){
+		puts("Request is empty.");
+	}
 
+	else{
+		printf("***Request***\ncode: %d->%s\nflags = %d\nparams = %d\npathlen = %d\ndatasize = %d\n", req->code, stringifyCode(req->code), req->flags, req->params, req->pathlen, req->datasize);
+		if(req->pathlen){
+			printf("path: %s\n", req->path);
+		}
+		if(req->data){
+			printf("data: %s\n", req->data);
+		}
+	}
+}
 
+void printResponse(Response* res){
+	if(res == NULL){
+		puts("Response is empty.");
+	}
 
+	else{
+		printf("***Response***\ncode: %d->%s\n", res->code, stringifyCode(res->code));
+		printf("flistsize: %d\n", res->flistsize);
+	}
+}
 

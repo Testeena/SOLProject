@@ -9,6 +9,7 @@
 #include <time.h>
 #include <errno.h>
 #include <assert.h>
+#include <unistd.h>
 
 #include "icl_hash.h"
 
@@ -78,13 +79,14 @@ typedef struct storage{
 } Storage;
 
 File* newFile(char* filepath, char* data);
-int freeFile(File* file);
+File* newcommsFile(char* filepath, char* data);
+void freeFile(File* file);
 
 FdList* newFdList();
 int putFd(FdList* list, int fd);
 int getFirstFd(FdList* list);
 int removeFd(FdList* list, int fd);
-int checkFd(FdList* list, int fd)
+int checkFd(FdList* list, int fd);
 int freeFdList(FdList* list);
 
 int addFilepath(FilepathList* list , char* filepath);
