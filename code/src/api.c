@@ -185,12 +185,11 @@ int readFile(const char* pathname, void** buf, size_t* size){
 	}
 
 	printResult(req, res);
-
 	if(res->code == RES_OK){
 		*size = res->flist->head->file->datasize;
 		*buf = res->flist->head->file->data;
 	}
-	freeRequest(req);
+	//freeRequest(req);
 	if(res->code != RES_OK){
 		return 1;
 	}
@@ -216,7 +215,6 @@ int readNFiles(int N, const char* dirname){
 	}
 
 	Response* res;
-
 	if((res = malloc(sizeof(Response))) == NULL){
 		return -1;
 	}
@@ -231,6 +229,11 @@ int readNFiles(int N, const char* dirname){
 				printResult(req, res);
 				puts("Read Files were thrashed since no directory was passed.");
 				puts("Use -d <directory path> to store them.");
+				FileNode* temp = res->flist->head;
+				while(temp != NULL){
+					printf("File: %s\nContent: %s\n", temp->file->path, temp->file->data);
+					temp = temp->next;
+				}
 			}
 		}
 		else{
@@ -304,8 +307,10 @@ int writeFile(const char* pathname, const char* dirname){
 		if(dirname == NULL){
 			if(verbose){
 				printResult(req, res);
-				puts("Read Files were thrashed since no directory was passed.");
-				puts("Use -d <directory path> to store them.");
+				if(res->flistsize > 0){
+					puts("Evicted Files were thrashed since no directory was passed.");
+					puts("Use -D <directory path> to store them.");
+				}
 			}
 		}
 		else{
@@ -353,8 +358,10 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
 		if(dirname == NULL){
 			if(verbose){
 				printResult(req, res);
-				puts("Read Files were thrashed since no directory was passed.");
-				puts("Use -d <directory path> to store them.");
+				if(res->flistsize > 0){
+					puts("Evicted Files were thrashed since no directory was passed.");
+					puts("Use -D <directory path> to store them.");
+				}
 			}
 		}
 		else{

@@ -11,33 +11,38 @@ int addFile(FileList* flist, File* file){
 			return -1;
 		}
 	}
+
+	File* toadd;
+	if((toadd = newcommsFile(file->path, file->data)) == NULL){
+		return -1;
+	}
+	FileNode* nodetoadd;
+	if((nodetoadd = malloc(sizeof(FileNode))) == NULL){
+		return -1;
+	}
+	nodetoadd->file = toadd;
+
+	if(flist->head == NULL){
+		flist->head = nodetoadd;
+		flist->tail = nodetoadd;
+		flist->size++;
+		return 0;
+	}
 	else{
-
-		File* toadd;
-		if((toadd = newcommsFile(file->path, file->data)) == NULL){
-			return -1;
-		}
-
-		if(flist->head == NULL && flist->tail == NULL){
-			flist->head->file = flist->tail->file = toadd;
+		if(flist->head == flist->tail){
+			flist->head->next = nodetoadd;
+			flist->tail = nodetoadd;
 			flist->size++;
 			return 0;
 		}
 		else{
-			if(flist->head == flist->tail){
-				flist->head->next->file = toadd;
-				flist->tail->file = toadd;
-				flist->size++;
-				return 0;
-			}
-			else{
-				flist->tail->next->file = toadd;
-				flist->tail->file = toadd;
-				flist->size++;
-				return 0;
-			}
+			flist->tail->next = nodetoadd;
+			flist->tail = nodetoadd;
+			flist->size++;
+			return 0;
 		}
 	}
+
 	return -1;
 }
 
@@ -163,8 +168,8 @@ int sendRequest(int sockfd, Request* request){
 			return -1;
 		}
 	}
-	printf(YELLOW "comms:" RESET);
-	printf(" Sent %d:%s Request.\n", request->code, stringifyCode(request->code));
+	//printf(YELLOW "comms:" RESET);
+	//printf(" Sent %d:%s Request to %d\n", request->code, stringifyCode(request->code), sockfd);
 	return 0;
 }
 
@@ -180,7 +185,7 @@ int sendResponse(int sockfd, Response* response){
 	}
 	if(response->flistsize > 0){
 		FileNode* temp = response->flist->head;
-		while(temp != NULL){
+		for (int i = 0; i < response->flistsize; i++){
 			if(write(sockfd, temp->file, sizeof(File)) == -1){
 				return -1;
 			}
@@ -196,7 +201,7 @@ int sendResponse(int sockfd, Response* response){
 		}
 	}
 	printf(YELLOW "comms:" RESET);
-	printf(" Sent %d:%s Response\n", response->code, stringifyCode(response->code));
+	printf(" Sent %d:%s Response to %d\n", response->code, stringifyCode(response->code), sockfd);
 	return 0;
 }
 
@@ -206,7 +211,7 @@ int getRequest(int sockfd, Request* request){
 		return -1;
 	}
 	printf(YELLOW "comms:" RESET);
-	printf(" Got %d:%s Request.\n", request->code, stringifyCode(request->code));
+	printf(" Got %d:%s Request from %d\n", request->code, stringifyCode(request->code), sockfd);
 	if(request->pathlen > 0){
 
 		if((request->path = malloc(request->pathlen * sizeof(char))) == NULL){
@@ -243,19 +248,18 @@ int getResponse(int sockfd, Response* response){
 	if(read(sockfd, response, sizeof(Response)) == -1){
 		return -1;
 	}
-	
 	if(response->flistsize > 0){
-		File* toget;
-		if((toget = malloc(sizeof(File))) == NULL){
-			return -1;
-		}
 
 		for (int i = 0; i < response->flistsize; i++){
-			
+
+			File* toget;
+			if((toget = malloc(sizeof(File))) == NULL){
+				return -1;
+			}			
 			if(read(sockfd, toget, sizeof(File)) == -1){
 				return -1;
 			}
-			
+
 			if((toget->path = malloc(toget->pathlen * sizeof(char))) == NULL){
 				return -1;
 			}
@@ -271,12 +275,12 @@ int getResponse(int sockfd, Response* response){
 			if(readn(sockfd, toget->data, toget->datasize) == -1){
 				return -1;
 			}
-			// use temp variables + newfile instead?
+
 			addFile(response->flist, toget);
 		}
 	}
-	printf(YELLOW "comms:" RESET);
-	printf(" Got %d:%s Response.\n", response->code, stringifyCode(response->code));
+	//printf(YELLOW "comms:" RESET);
+	//printf(" Got %d:%s Response from %d\n", response->code, stringifyCode(response->code), sockfd);
 	return 0;
 }
 

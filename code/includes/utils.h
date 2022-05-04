@@ -25,7 +25,7 @@
 #include <sys/select.h>
 
 #define MAXPIPEBUFF 5
-#define MAX_PATH 128
+#define MAX_PATH 256
 #define MAX_REQUESTS 256
 #define DEFAULT_MAXSTORAGE 100000
 #define DEFAULT_MAXNFILES 100

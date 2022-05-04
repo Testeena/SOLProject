@@ -80,22 +80,29 @@ int removeFd(FdList* list, int fd){
 }
 
 int checkFd(FdList* list, int fd){
-	if(list == NULL || list->head){
+	if(list == NULL || list->head == NULL){
 		return -1;
 	}
 	else{
 		FdNode* temp = list->head;
 		while(temp != NULL){
-
 			if(temp->fd == fd){
 				return 1;
 			}
-			else{
-				temp = temp->next;
-			}
+			temp = temp->next;
 		}
 	}
 	return -1;
+}
+
+void printFdList(FdList* list){
+	FdNode* temp = list->head;
+	printf("FdList: ");
+	while(temp != NULL){
+		printf("%d->", temp->fd);
+		temp = temp->next;
+	}
+	puts("NULL");
 }
 
 int freeFdList(FdList* list){
@@ -152,13 +159,13 @@ File* newcommsFile(char* filepath, char* data){
 		return NULL;
 	}
 
-	if((new->path = malloc(MAXPATHLEN * sizeof(char))) == NULL){
+	new->pathlen = strlen(filepath);
+	if((new->path = malloc(strlen(filepath) * sizeof(char))) == NULL){
 		free(new);
 		return NULL;
 	}
 
 	strncpy(new->path, filepath, MAXPATHLEN);
-
 	if(data == NULL){
 		new->datasize = 0;
 		new->data = NULL;
@@ -174,6 +181,7 @@ File* newcommsFile(char* filepath, char* data){
 	}
 	new->lockwaiters = NULL;
 	new->openers = NULL;
+
 	return new;
 }
 
@@ -213,15 +221,13 @@ int addFilepath(FilepathList* list , char* filepath){
 
 	strncpy(new->filepath, filepath, strlen(filepath));
 	new->next = NULL;
-
-	if(list->head == NULL && list->tail == NULL){
+	if(list->head == NULL){
 		list->head = list->tail = new;
 		return 0;
 	}
-
-	if(list->tail != NULL){
+	else{
 		list->tail->next = new;
-		list->tail = list->tail->next;
+		list->tail = new;
 		return 0;
 	}
 
@@ -252,8 +258,10 @@ int deleteFilepathNode(FilepathList* list, char* path){
 	else{
 		FilepathNode* temp = list->head;
 		if(strcmp(temp->filepath, path) == 0){
+			list->head = list->head->next;
 			free(temp->filepath);
 			free(temp);
+			return 0;
 		} 
 		else{
 			while(temp->next != NULL && strcmp(temp->next->filepath, path) != 0){
@@ -264,8 +272,8 @@ int deleteFilepathNode(FilepathList* list, char* path){
 				temp->next = temp->next->next;
 				free(tofree->filepath);
 				free(tofree);
+				return 0;
 			}
-			return 0;
 		}
 	}
 	return -1;
@@ -292,10 +300,10 @@ int freeFilepathList(FilepathList* list){
 
 void printFilepaths(FilepathList* list){
 	if(list->head != NULL){
-		printf("\nList of stored files before quitting:\n");
+		printf("List of stored files before quitting:\n");
 		FilepathNode* temp = list->head;
 		while(temp != NULL){
-			printf("%s\n",list->head->filepath);
+			printf("%s\n",temp->filepath);
 			temp = temp->next;
 		}
 	}

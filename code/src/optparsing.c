@@ -44,14 +44,21 @@ OptNode* getdnode(OptList* list){
 		return NULL;
 	}
 	else{
+		OptNode* toreturn;
 		OptNode* temp = list->head;
+		if(temp->opt == 'd'){
+			toreturn = temp;
+			list->head = list->head->next;
+			return toreturn;
+		}
+
 		while(temp != NULL && temp->next->opt != 'd'){
 			temp = temp->next;
 		}
 		if(temp == NULL){
 			return NULL;
 		}
-		OptNode* toreturn = temp->next;
+		toreturn = temp->next;
 		temp->next = temp->next->next;
 		return toreturn;
 	}
@@ -62,14 +69,21 @@ OptNode* getDnode(OptList* list){
 		return NULL;
 	}
 	else{
+		OptNode* toreturn;
 		OptNode* temp = list->head;
+		if(temp->opt == 'D'){
+			toreturn = temp;
+			list->head = list->head->next;
+			return toreturn;
+		}
+		
 		while(temp != NULL && temp->next->opt != 'D'){
 			temp = temp->next;
 		}
 		if(temp == NULL){
 			return NULL;
 		}
-		OptNode* toreturn = temp->next;
+		toreturn = temp->next;
 		temp->next = temp->next->next;
 		return toreturn;
 	}

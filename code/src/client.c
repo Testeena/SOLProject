@@ -10,7 +10,7 @@ bool verbose = false;
 
 void help(void);
 int makeApiCall(OptNode* option, char* evictedDir, char* saveDir);
-int recDirWrite(DIR* dir, int n, char* evictedDir);
+int recDirWrite(char* dirpath, int n, char* evictedDir);
 
 int main(int argc, char *argv[]){
 	if(argc < 2){
@@ -175,16 +175,20 @@ int main(int argc, char *argv[]){
 		}
 
 		else if(toget->opt == 'r' || toget->opt == 'R'){
-			OptNode* dtemp = getdnode(optlist);
+			OptNode* dtemp;
+			if((dtemp = malloc(sizeof(OptNode))) == NULL){
+				return -1;
+			}
+			dtemp = getdnode(optlist);
 			//maybe tokenize && make safe 'arg' before passing it (?)
 			if(dtemp != NULL){
-				if(makeApiCall(toget, dtemp->arg, NULL) == -1){
+				if(makeApiCall(toget, NULL, dtemp->arg) == -1){
 					fprintf(stderr, "makeApiCall error\n");
 				}
 			}
 			else{
 				if(makeApiCall(toget, NULL, NULL) == -1){
-					fprintf(stderr, "makeApiCall erro\n");
+					fprintf(stderr, "makeApiCall error\n");
 				}
 			}
 			free(dtemp);
@@ -238,17 +242,7 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 			if(ntokenw != NULL && atoi(ntokenw) > 0){
 				n = atoi(ntokenw);
 			}
-			free(ntokenw); // not sure
-
-			DIR* dir;
-			if((dir = opendir(absdirpathw)) == NULL){
-				free(dir); // not sure
-				return -1;
-			}
-
-			if(evictedDir){
-				recDirWrite(dir, n, evictedDir);
-			}
+			recDirWrite(absdirpathw, n, evictedDir);
 			break;
 		case 'W':
 			;
@@ -299,7 +293,6 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 				    }
 
 				    if((fread(data, sizeof(char), datalen, file)) != datalen){
-				    	free(data);
 				    	return -1;
 				    }
 				    fclose(file);
@@ -308,6 +301,7 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 				    	perror("appendToFile error");
 				    	return -1;
 				    }
+
 				    if(closeFile(fileabspathW) == -1){
 						perror("closeFile error");
 						return -1;
@@ -322,7 +316,6 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 				}
 				filetokenW = strtok(NULL, ",");
 			}
-			puts("Exited -W options loop");
 			break;
 		case 'r':
 			;
@@ -344,7 +337,10 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 				size_t bufsize;
 
 				if(readFile(fileabspathr, &buf, &bufsize) == 0){
+					printf("realpath savedir = %s\n", realpath(saveDir, NULL));
+
 					if(opendir(saveDir)){
+						puts("opendir done!!!!!!");
 						FILE* file;
 						if((file = fopen(fileabspathr, "w")) == NULL){
 							perror("fopen error");
@@ -356,7 +352,7 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 					}
 					else{
 						if(verbose){
-							printf("File: %s\nContent:%s\n", fileabspathr, (char*)buf);
+							printf("File: %s\nContent: %s\n", fileabspathr, (char*)buf);
 						}
 					}
 				}
@@ -385,7 +381,6 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 			if(nRtoken != NULL && atoi(nRtoken) > 0){
 				nR = atoi(nRtoken);
 			}
-			free(nRtoken); // not sure
 
 			if(readNFiles(nR, saveDir) == -1){
 				perror("readNFiles error");
@@ -395,8 +390,8 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 			break;
 		case 'l':
 			;
-			char* filetokenl;
-			while((filetokenl = strtok(option->arg, ",")) != NULL){
+			char* filetokenl = strtok(option->arg, ",");
+			while(filetokenl != NULL){
 				char* fileabspathl;
 				if((fileabspathl = malloc(PATH_MAX * sizeof(char))) == NULL){
 					perror("filepath malloc error");
@@ -423,8 +418,8 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 			break;
 		case 'u':
 			;
-			char* filetokenu;
-			while((filetokenu = strtok(option->arg, ",")) != NULL){
+			char* filetokenu = strtok(option->arg, ",");
+			while(filetokenu != NULL){
 				char* fileabspathu;
 				if((fileabspathu = malloc(PATH_MAX * sizeof(char))) == NULL){
 					perror("filepath malloc error");
@@ -446,13 +441,13 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 					perror("closeFile error");
 					return -1;
 				}
-				filetokenl = strtok(NULL, ",");
+				filetokenu = strtok(NULL, ",");
 			}
 			break;
 		case 'c':
 			;
-			char* filetokenc;
-			while((filetokenc = strtok(option->arg, ",")) != NULL){
+			char* filetokenc = strtok(option->arg, ",");
+			while(filetokenc != NULL){
 				char* fileabspathc;
 				if((fileabspathc = malloc(PATH_MAX * sizeof(char))) == NULL){
 					perror("filepath malloc error");
@@ -465,15 +460,11 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 					return -1;
 				}
 
-				if(lockFile(fileabspathc) == -1){
+				if(removeFile(fileabspathc) == -1){
 					perror("lockFile error");
 					return -1;
 				}
 
-				if(closeFile(fileabspathc) == -1){
-					perror("closeFile error");
-					return -1;
-				}
 				filetokenc = strtok(NULL, ",");
 			}
 			break;
@@ -486,11 +477,15 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 
 // recursively opens 'dir' and his subdirectories, sending n writefiles requests to the server, one for each found file
 
-int recDirWrite(DIR* dir, int n, char* evictedDir){
+int recDirWrite(char* dirpath, int n, char* evictedDir){
 	
 	struct dirent* direntry;
-
 	int fcount = 0;
+
+	DIR* dir;
+	if((dir = opendir(dirpath)) == NULL){
+		return -1;
+	}
 
 	// looping through files contained in 'dir'
 	while((direntry = readdir(dir)) != NULL){
@@ -499,12 +494,22 @@ int recDirWrite(DIR* dir, int n, char* evictedDir){
 			break;
 		}
 
-		if (strcmp(direntry->d_name, ".") == 0 || strcmp(direntry->d_name, "..") == 0) {
+		if(strcmp(direntry->d_name, ".") == 0 || strcmp(direntry->d_name, "..") == 0) {
 			continue;
 		}
 
 		struct stat filestats;
-		if(stat(direntry->d_name, &filestats) != -1){
+
+		char temppath[MAX_PATH];
+		if(dirpath[strlen(dirpath)-1] == '/'){
+			snprintf(temppath, sizeof(temppath), "%s%s", dirpath, direntry->d_name);
+		}
+		else{
+			snprintf(temppath, sizeof(temppath), "%s/%s", dirpath, direntry->d_name);
+		}
+		printf("temppath after working it: %s\n", temppath);
+
+		if(stat(temppath, &filestats) == 0){
 			if(!S_ISDIR(filestats.st_mode)){
 				// found file is not a directory: actual write request need to be done here
 				char* fileabspath;
@@ -512,7 +517,7 @@ int recDirWrite(DIR* dir, int n, char* evictedDir){
 					perror("filepath malloc error");
 					return -1;
 				}
-				fileabspath = realpath(direntry->d_name, NULL);
+				fileabspath = realpath(temppath, NULL);
 				if(openFile(fileabspath, O_CREATE) == 0){
 					if(writeFile(fileabspath, evictedDir) == -1){
 						perror("writeFile error");
@@ -563,7 +568,8 @@ int recDirWrite(DIR* dir, int n, char* evictedDir){
 			}
 			else{
 				// maybe check on opendir call return before passing it
-				recDirWrite(opendir(direntry->d_name), n, evictedDir);
+				recDirWrite(temppath, n, evictedDir);
+
 			}
 		}
 	}

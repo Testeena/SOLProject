@@ -87,6 +87,7 @@ int putFd(FdList* list, int fd);
 int getFirstFd(FdList* list);
 int removeFd(FdList* list, int fd);
 int checkFd(FdList* list, int fd);
+void printFdList(FdList* list);
 int freeFdList(FdList* list);
 
 int addFilepath(FilepathList* list , char* filepath);
