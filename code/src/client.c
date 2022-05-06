@@ -147,12 +147,13 @@ int main(int argc, char *argv[]){
 		freeOptList(optlist);
 		return -1;
 	}
+	/*
 	else{
 		if(verbose){
 			puts(BLUE "Connection estabilished." RESET);
 		}
 	}
-	
+	*/
 	OptNode* toget = getFirstOpt(optlist);
 	while(toget != NULL){
 		usleep(sleeptime);
@@ -205,11 +206,13 @@ int main(int argc, char *argv[]){
 	if(closeConnection(socketname) == -1){
 		perror("closeConnection error");
 	}
+	/*
 	else{
 		if(verbose){
 			puts(BLUE "Connection closed." RESET);
 		}
 	}
+	*/
 	/*
 	freeOptNode(toget);
 	puts("HELLO");
@@ -337,16 +340,22 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 				size_t bufsize;
 
 				if(readFile(fileabspathr, &buf, &bufsize) == 0){
-					printf("realpath savedir = %s\n", realpath(saveDir, NULL));
-
 					if(opendir(saveDir)){
-						puts("opendir done!!!!!!");
+						char newfilepath[MAX_PATH];
+						strncpy(newfilepath, saveDir, strlen(saveDir));
+						if(newfilepath[MAX_PATH-1] != '/'){
+							strcat(newfilepath, "/");
+						}
+						strncat(newfilepath, basename(fileabspathr), strlen(basename(fileabspathr)));
 						FILE* file;
-						if((file = fopen(fileabspathr, "w")) == NULL){
+						if((file = fopen(newfilepath, "w")) == NULL){
 							perror("fopen error");
 							return -1;
 						}
-						fwrite(buf, sizeof(char), bufsize, file);
+						fwrite((char*)buf, sizeof(char), bufsize, file);
+						if(verbose){
+							printf("File %s saved in %s.\n", fileabspathr, saveDir);
+						}
 						fclose(file);
 						free(buf);
 					}
@@ -507,7 +516,6 @@ int recDirWrite(char* dirpath, int n, char* evictedDir){
 		else{
 			snprintf(temppath, sizeof(temppath), "%s/%s", dirpath, direntry->d_name);
 		}
-		printf("temppath after working it: %s\n", temppath);
 
 		if(stat(temppath, &filestats) == 0){
 			if(!S_ISDIR(filestats.st_mode)){

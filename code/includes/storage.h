@@ -49,6 +49,7 @@ typedef struct file{
 	int readers;
 	int creator;			// client who successfully did openfile with O_CREATE
 	int locker;	 			// client who successfully did lockFile
+	
 	FdList* lockwaiters;	// clients waiting to do lockFile
 	FdList* openers;		// clients that successfully opened the file
 

@@ -21,6 +21,7 @@ int addFile(FileList* flist, File* file){
 		return -1;
 	}
 	nodetoadd->file = toadd;
+	nodetoadd->next = NULL;
 
 	if(flist->head == NULL){
 		flist->head = nodetoadd;
@@ -200,8 +201,8 @@ int sendResponse(int sockfd, Response* response){
 			temp = temp->next;
 		}
 	}
-	printf(YELLOW "comms:" RESET);
-	printf(" Sent %d:%s Response to %d\n", response->code, stringifyCode(response->code), sockfd);
+	//printf(YELLOW "comms:" RESET);
+	//printf(" Sent %d:%s Response to %d\n", response->code, stringifyCode(response->code), sockfd);
 	return 0;
 }
 
@@ -210,8 +211,8 @@ int getRequest(int sockfd, Request* request){
 	if(read(sockfd, request, sizeof(Request)) == -1){
 		return -1;
 	}
-	printf(YELLOW "comms:" RESET);
-	printf(" Got %d:%s Request from %d\n", request->code, stringifyCode(request->code), sockfd);
+	//printf(YELLOW "comms:" RESET);
+	//printf(" Got %d:%s Request from %d\n", request->code, stringifyCode(request->code), sockfd);
 	if(request->pathlen > 0){
 
 		if((request->path = malloc(request->pathlen * sizeof(char))) == NULL){
@@ -249,6 +250,10 @@ int getResponse(int sockfd, Response* response){
 		return -1;
 	}
 	if(response->flistsize > 0){
+
+		if((response->flist = malloc(sizeof(FileList))) == NULL){
+			return -1;
+		}
 
 		for (int i = 0; i < response->flistsize; i++){
 

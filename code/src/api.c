@@ -2,33 +2,33 @@
 #include "../includes/comms.h"
 
 int saveFiles(char* dirname, FileList* flist){
+
 	char* dirpath;
 	if((dirpath = calloc(MAX_PATH, sizeof(char))) == NULL){
 		return -1;
 	}
-	strncpy(dirpath, dirname, strlen(dirname));
-
-	if(dirname[strlen(dirname)-1] != '/'){
-		strcat(dirname, "/");
+	dirpath = realpath(dirname, NULL);
+	if(dirpath[MAX_PATH-1] != '/'){
+		strcat(dirpath, "/");
 	}
-
 	while(flist->size > 0){
 		File* temp;
 		temp = popFile(flist);
-		// could return NULL (?)
-		char dirpathcopy[strlen(dirpath)+1];
-		strncpy(dirpathcopy, dirpath, strlen(dirpath));
-		strcat(dirpathcopy, basename(temp->path));
-
+		char* filepath;
+		if((filepath = malloc(sizeof(char) * MAX_PATH)) == NULL){
+			return -1;
+		}
+		strncpy(filepath, dirpath, strlen(dirpath));
+		strcat(filepath, basename(temp->path));
 		FILE* towrite;
-		if((towrite = fopen(dirpathcopy, "w")) == NULL){
+		if((towrite = fopen(filepath, "w")) == NULL){
 			return -1;
 		}
 
 		fwrite(temp->data, sizeof(char), temp->datasize, towrite);
 		fclose(towrite);
 		if(verbose){
-			printf("File '%s' saved in '%s'.\n", temp->path, basename(dirname));
+			printf(GREEN "File '%s' saved in '%s'.\n" RESET, temp->path, basename(dirname));
 		}
 	}
 	return 0;
@@ -150,7 +150,10 @@ int openFile(const char* pathname, int flags){
 	printResult(req, res);
 	//freeRequest(req);
 
-	// check on responsecode and return correct value !!!!!!!
+	if(res->flistsize > 0 && verbose){
+		printf("Server Eviction of %s done.\n", res->flist->head->file->path);
+	}
+
 	if(res->code != RES_OK){
 		return 1;
 	}
@@ -308,13 +311,15 @@ int writeFile(const char* pathname, const char* dirname){
 			if(verbose){
 				printResult(req, res);
 				if(res->flistsize > 0){
-					puts("Evicted Files were thrashed since no directory was passed.");
+					puts(YELLOW "Evicted Files were thrashed since no directory was passed." RESET);
 					puts("Use -D <directory path> to store them.");
 				}
 			}
 		}
 		else{
-			printf("going to saveFiles...\n");
+			if(verbose){
+				printResult(req, res);
+			}
 			saveFiles((char*)dirname, res->flist);
 		}
 	}
@@ -365,6 +370,9 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
 			}
 		}
 		else{
+			if(verbose){
+				printResult(req, res);
+			}
 			saveFiles((char*)dirname, res->flist);
 		}
 	}

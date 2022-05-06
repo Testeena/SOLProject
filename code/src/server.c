@@ -120,7 +120,6 @@ int main(int argc, char *argv[]){
 		PERRNOTZERO(pthread_create(&workers[i], NULL, work, (void*)(wargs+i)));
 		requestsdone[i] = 0;
 	}
-
 	while(!hardexit){
 		readsetcopy = readset;
 		if(select(maxfd+1, &readsetcopy, NULL, NULL, NULL) == -1){
@@ -164,7 +163,7 @@ int main(int argc, char *argv[]){
 						FD_SET(newconn, &readset);
 						connectedclients++;
 						maxconnectedclients = (connectedclients > maxconnectedclients) ? connectedclients : maxconnectedclients;
-						printf(GREEN "Client[%d] connected.\n" RESET, newconn);
+						//printf(GREEN "Client[%d] connected.\n" RESET, newconn);
 
 						time_t rawtime;
 						struct tm* timestamp;
@@ -180,6 +179,7 @@ int main(int argc, char *argv[]){
 				}
 				
 				else{
+					// already connected client case
 					FD_CLR(i, &readset);
 					if(i == maxfd){
 						maxfd--;
@@ -206,12 +206,19 @@ int main(int argc, char *argv[]){
 	freeRequestQueue(requests);
 	puts("\nStatistics:");
 	printf("Evicted files: %d\n", storage->evicted);
+	fprintf(logfile, "\n\n---------------------------- END ----------------------------\n\n");
+	fprintf(logfile, "Evicted files: %d\n", storage->evicted);
 	printf("Maximum number of files reached: %d/%d\n", storage->maxreachedfiles, storage->maxfiles);
+	fprintf(logfile, "Maximum number of files reached: %d\n", storage->maxreachedfiles);
 	printf("Maximum bytes capacity reached:  %d/%d\n", storage->maxreachedsize, storage->maxsize);
+	fprintf(logfile, "Maximum Mb capacity reached:  %d\n", storage->maxreachedsize/1000000);
 	puts("Number of requests served by workers:");
+	fprintf(logfile, "Number of requests served by workers:\n");
 	for (int i = 0; i < nworkers; ++i){
-		printf("   Worker %d: %d\n", i, requestsdone[i]);
+		printf("	Worker n.%d: %d\n", i, requestsdone[i]);
+		fprintf(logfile, "\tWorker n.%d: %d\n", i, requestsdone[i]);
 	}
+	fclose(logfile);
 	printFilepaths(storage->filepaths);
 	freeStorage(storage);
 
@@ -231,7 +238,7 @@ void* work(void* args){
 		if((clientfd = getRequestor(wrequests)) == -1){
 			continue;
 		}
-		printf(CYAN "------- Client[%d] is going to be served by Worker n.%d, pthread_self = %ld -------\n" RESET, clientfd, wtid, (long)pthread_self());
+		//printf(CYAN "------- Client[%d] is going to be served by Worker n.%d, pthread_self = %ld -------\n" RESET, clientfd, wtid, (long)pthread_self());
 
 		char pipebuffer[MAXPIPEBUFF];
 
@@ -271,6 +278,7 @@ void* work(void* args){
 							PERRNEG(popFilepathList(wstorage->filepaths, toevictpath));
 							PERRNULL((evicted = icl_hash_find(wstorage->hashtable, toevictpath)));
 							FileList* evictedlist;
+							PERRNULL((evictedlist = malloc(sizeof(FileList))));
 							PERRNEG(addFile(evictedlist, evicted));
 							PERRNULL((res = newResponse(RES_OK, evictedlist)));
 						}
@@ -510,6 +518,8 @@ void* work(void* args){
 				if(req->datasize > wstorage->maxsize){
 					PERRNULL((res = newResponse(RES_NOMEM, NULL)));
 					PERRNOTZERO(pthread_mutex_unlock(&(wstorage->storagemtx)));
+					PERRNEG(sendResponse(clientfd, res));
+					logprint(req, res, clientfd);
 				}
 				else{
 					File* towrite = icl_hash_find(wstorage->hashtable, req->path);
@@ -517,6 +527,8 @@ void* work(void* args){
 					if(towrite == NULL){
 						PERRNOTZERO(pthread_mutex_unlock(&(wstorage->storagemtx)));
 						PERRNULL((res = newResponse(RES_NOTFOUND, NULL)));
+						PERRNEG(sendResponse(clientfd, res));
+						logprint(req, res, clientfd);
 					}
 					else{
 						// if the file has just been created
@@ -527,7 +539,6 @@ void* work(void* args){
 								PERRNULL((res = newResponse(RES_DENIED, NULL)));
 								PERRNEG(sendResponse(clientfd, res));
 								logprint(req, res, clientfd);
-								PERRNOTZERO(freeResponse(res));
 							}
 							else{
 								File* evicted;
@@ -550,7 +561,7 @@ void* work(void* args){
 									}
 
 									PERRNEG(addFile(evictedlist, evicted));
-									PERRNEG(icl_hash_delete(wstorage->hashtable, evicted, NULL, NULL));
+									PERRNEG(icl_hash_delete(wstorage->hashtable, evicted->path, NULL, NULL));
 									wstorage->currsize -= evicted->datasize;
 									wstorage->currfiles--;
 									wstorage->evicted++;
@@ -857,8 +868,8 @@ void* work(void* args){
 
 					File* tocheck = icl_hash_find(wstorage->hashtable, tocheckpath->filepath);
 
-					PERRNOTZERO(pthread_mutex_unlock(&(tocheck->ordering)));
-    				PERRNOTZERO(pthread_mutex_unlock(&(tocheck->mtx)));
+					PERRNOTZERO(pthread_mutex_lock(&(tocheck->ordering)));
+    				PERRNOTZERO(pthread_mutex_lock(&(tocheck->mtx)));
 
 					while(tocheck->readers != 0 && tocheck->writer != 0){
 						PERRNOTZERO(pthread_cond_wait(&(tocheck->writecond), &(tocheck->mtx)));
@@ -925,17 +936,26 @@ void logprint(Request* req, Response* res, int clientfd){
 	time(&rawtime);
 	timestamp = localtime(&rawtime);
 
-	fprintf(logfile, "\nClient[%d]\n\tWorker:   %ld\n\tRequest:  %s\n\tResponse: %s\n\tTime:     %s", clientfd, (long)pthread_self(), stringifyCode(req->code), stringifyCode(res->code), asctime(timestamp));
+	fprintf(logfile, "\nClient[%d]\n\tWorker: %ld\n\tRequest: %s\n\tResponse: %s\n\tTime: %s", clientfd, (long)pthread_self(), stringifyCode(req->code), stringifyCode(res->code), asctime(timestamp));
 
 	if(req->datasize){
-		fprintf(logfile, "\tBytes:    %d\n", req->datasize);
+		fprintf(logfile, "\tBytes Written: %d\n", req->datasize);
 	}
 
+	if(res->flistsize){
+		int bytes = 0;
+		FileNode* temp = res->flist->head;
+		while(temp != NULL){
+			bytes += temp->file->datasize;
+			temp = temp->next;
+		}
+		fprintf(logfile, "\tBytes Read: %d\n", bytes);
+	}
 	if(res->flistsize != 0){
 		if(req->code == REQ_OPEN || req->code == REQ_WRITE){
 			fprintf(logfile, "\tEvictedFiles(%d):\n", res->flistsize);
 		}
-		else{
+		else if (req->code == REQ_READN){
 			fprintf(logfile, "\tFiles read(%d):\n", res->flistsize);
 		}
 		FileNode* temp = res->flist->head;
