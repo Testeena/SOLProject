@@ -341,23 +341,27 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 
 				if(readFile(fileabspathr, &buf, &bufsize) == 0){
 					if(opendir(saveDir)){
-						char newfilepath[MAX_PATH];
+						char* newfilepath;
+						if((newfilepath = calloc(MAX_PATH * sizeof(char), 0)) == NULL){
+							return -1;
+						}
 						strncpy(newfilepath, saveDir, strlen(saveDir));
 						if(newfilepath[MAX_PATH-1] != '/'){
 							strcat(newfilepath, "/");
 						}
-						strncat(newfilepath, basename(fileabspathr), strlen(basename(fileabspathr)));
+						strcat(newfilepath, basename(fileabspathr));
 						FILE* file;
-						if((file = fopen(newfilepath, "w")) == NULL){
+						if((file = fopen(newfilepath, "w+")) == NULL){
 							perror("fopen error");
 							return -1;
 						}
 						fwrite((char*)buf, sizeof(char), bufsize, file);
 						if(verbose){
-							printf("File %s saved in %s.\n", fileabspathr, saveDir);
+							printf(GREEN "File %s saved in %s.\n" RESET, fileabspathr, saveDir);
 						}
 						fclose(file);
 						free(buf);
+						free(newfilepath);
 					}
 					else{
 						if(verbose){

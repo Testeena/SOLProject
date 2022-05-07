@@ -222,6 +222,8 @@ int main(int argc, char *argv[]){
 	printFilepaths(storage->filepaths);
 	freeStorage(storage);
 
+	puts(RED "SERVER PROCESS TERMINATING" RESET);
+
 	return 0;
 }
 

@@ -11,6 +11,7 @@ int addFile(FileList* flist, File* file){
 			return -1;
 		}
 	}
+	flist->size = 0;
 
 	File* toadd;
 	if((toadd = newcommsFile(file->path, file->data)) == NULL){
@@ -23,25 +24,16 @@ int addFile(FileList* flist, File* file){
 	nodetoadd->file = toadd;
 	nodetoadd->next = NULL;
 
-	if(flist->head == NULL){
-		flist->head = nodetoadd;
-		flist->tail = nodetoadd;
+	if(flist->head == NULL || flist->tail == NULL){
+		flist->head = flist->tail = nodetoadd;
 		flist->size++;
 		return 0;
 	}
 	else{
-		if(flist->head == flist->tail){
-			flist->head->next = nodetoadd;
-			flist->tail = nodetoadd;
-			flist->size++;
-			return 0;
-		}
-		else{
-			flist->tail->next = nodetoadd;
-			flist->tail = nodetoadd;
-			flist->size++;
-			return 0;
-		}
+		flist->tail->next = nodetoadd;
+		flist->tail = nodetoadd;
+		flist->size++;
+		return 0;
 	}
 
 	return -1;
@@ -186,6 +178,9 @@ int sendResponse(int sockfd, Response* response){
 	}
 	if(response->flistsize > 0){
 		FileNode* temp = response->flist->head;
+		if(temp == NULL){
+			return 0;
+		}
 		for (int i = 0; i < response->flistsize; i++){
 			if(write(sockfd, temp->file, sizeof(File)) == -1){
 				return -1;

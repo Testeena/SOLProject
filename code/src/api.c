@@ -15,7 +15,7 @@ int saveFiles(char* dirname, FileList* flist){
 		File* temp;
 		temp = popFile(flist);
 		char* filepath;
-		if((filepath = malloc(sizeof(char) * MAX_PATH)) == NULL){
+		if((filepath = calloc(sizeof(char) * MAX_PATH, 0)) == NULL){
 			return -1;
 		}
 		strncpy(filepath, dirpath, strlen(dirpath));
@@ -127,7 +127,6 @@ int openFile(const char* pathname, int flags){
 		errno = EINVAL;
 		return -1;
 	}
-
 	Request* req;
 	if((req = newRequest(REQ_OPEN, flags, 0, strlen(pathname), 0, (char*)pathname, NULL)) == NULL){
 		errno = ENOMEM;
