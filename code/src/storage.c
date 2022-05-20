@@ -7,6 +7,7 @@ FdList* newFdList(){
 		return NULL;
 	}
 	else{
+		toreturn->head = toreturn->tail = NULL;
 		return toreturn;
 	}
 }
@@ -123,12 +124,14 @@ File* newFile(char* filepath, char* data){
 		return NULL;
 	}
 
-	if((new->path = malloc(MAXPATHLEN * sizeof(char))) == NULL){
+	if((new->path = malloc(MAX_PATH * sizeof(char))) == NULL){
 		free(new);
 		return NULL;
 	}
 
-	strncpy(new->path, filepath, MAXPATHLEN);
+	new->pathlen = strlen(filepath);
+	strncpy(new->path, filepath, MAX_PATH);
+	strcat(new->path, "\0");
 
 	if(data == NULL){
 		new->datasize = 0;
@@ -160,12 +163,11 @@ File* newcommsFile(char* filepath, char* data){
 	}
 
 	new->pathlen = strlen(filepath);
-	if((new->path = malloc(strlen(filepath) * sizeof(char))) == NULL){
+	if((new->path = malloc(MAX_PATH * sizeof(char))) == NULL){
 		free(new);
 		return NULL;
 	}
-
-	strncpy(new->path, filepath, MAXPATHLEN);
+	strncpy(new->path, filepath, strlen(filepath));
 	if(data == NULL){
 		new->datasize = 0;
 		new->data = NULL;
@@ -220,8 +222,8 @@ int addFilepath(FilepathList* list , char* filepath){
 	} 
 
 	strncpy(new->filepath, filepath, strlen(filepath));
-	new->next = NULL;
-	if(list->head == NULL){
+
+	if(list->head == NULL && list->tail == NULL){
 		list->head = list->tail = new;
 		return 0;
 	}
@@ -237,14 +239,15 @@ int addFilepath(FilepathList* list , char* filepath){
 int popFilepathList(FilepathList* list, char* poppedpath){
 
 	if(list == NULL || list->head == NULL){
-		return 0;
+		return 1;
 	}
 	else{
 		FilepathNode* temp = list->head;
 		list->head = list->head->next;
+		if(list->head == NULL){
+			list->tail = NULL;
+		}
 		strncpy(poppedpath, temp->filepath, strlen(temp->filepath));
-		free(temp->filepath);
-		free(temp);
 		return 0;
 	}
 
@@ -259,6 +262,9 @@ int deleteFilepathNode(FilepathList* list, char* path){
 		FilepathNode* temp = list->head;
 		if(strcmp(temp->filepath, path) == 0){
 			list->head = list->head->next;
+			if(list->head == NULL){
+				list->tail = NULL;
+			}
 			free(temp->filepath);
 			free(temp);
 			return 0;
@@ -300,10 +306,12 @@ int freeFilepathList(FilepathList* list){
 
 void printFilepaths(FilepathList* list){
 	if(list->head != NULL){
-		printf("List of stored files before quitting:\n");
+		printf("List of stored files:\n");
 		FilepathNode* temp = list->head;
 		while(temp != NULL){
-			printf("%s\n",temp->filepath);
+			if(temp->filepath != NULL){
+				printf("%s\n",temp->filepath);
+			}
 			temp = temp->next;
 		}
 	}
@@ -351,7 +359,6 @@ Storage* newStorage(int maxfiles, int maxsize){
 	}
 
 	// mutex initialization
-
 	PERRNOTZERO(pthread_mutex_init(&(storage->storagemtx), NULL));
 
 	// internal variables set

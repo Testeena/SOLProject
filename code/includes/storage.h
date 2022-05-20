@@ -15,7 +15,6 @@
 
 // big prime number used by hashtable 
 #define BUCKETS 1009
-#define MAXPATHLEN 256
 
 typedef struct fdnode{
 	int fd;

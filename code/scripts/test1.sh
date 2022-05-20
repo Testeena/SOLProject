@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# valgrind --leak-check=full
 bin/server configs/config1.txt &
 serverpid=$!
 
@@ -14,8 +15,6 @@ bin/client -p -t 200 -f solsock.sk -l files/files1/file1.txt -c files/files1/fil
 bin/client -p -t 200 -f solsock.sk -l files/files1/file2.txt -r files/files1/file2.txt -u files/files1/file2.txt
 
 bin/client -p -t 200 -f solsock.sk -c files/files2/file9.txt
-
-/bin/sleep 3
 
 kill -s SIGHUP $serverpid
 wait $serverpid

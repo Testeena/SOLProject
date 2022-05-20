@@ -3,28 +3,23 @@
 int addFile(FileList* flist, File* file){
 
 	if(file == NULL){
-		return 0;
+		return -1;
 	}
 
 	if(flist == NULL){
-		if((flist = malloc(sizeof(FileList))) == NULL){
-			return -1;
-		}
-	}
-	flist->size = 0;
-
-	File* toadd;
-	if((toadd = newcommsFile(file->path, file->data)) == NULL){
 		return -1;
 	}
+
 	FileNode* nodetoadd;
 	if((nodetoadd = malloc(sizeof(FileNode))) == NULL){
 		return -1;
 	}
-	nodetoadd->file = toadd;
-	nodetoadd->next = NULL;
 
-	if(flist->head == NULL || flist->tail == NULL){
+	if((nodetoadd->file = newcommsFile(file->path, file->data)) == NULL){
+		return -1;
+	}
+
+	if(flist->head == NULL){
 		flist->head = flist->tail = nodetoadd;
 		flist->size++;
 		return 0;
@@ -47,13 +42,15 @@ File* popFile(FileList* flist){
 	else{
 		FileNode* temp = flist->head;
 		flist->head = flist->head->next;
+		if(flist->head == NULL){
+			flist->tail = NULL;
+		}
 		flist->size--;
 		return temp->file;
 	}
 }
 
 int freeFileList(FileList* flist){
-
 	while(flist->head != NULL){
 		FileNode* temp = flist->head;
 		flist->head = flist->head->next;
@@ -179,7 +176,7 @@ int sendResponse(int sockfd, Response* response){
 	if(response->flistsize > 0){
 		FileNode* temp = response->flist->head;
 		if(temp == NULL){
-			return 0;
+			return -1;
 		}
 		for (int i = 0; i < response->flistsize; i++){
 			if(write(sockfd, temp->file, sizeof(File)) == -1){

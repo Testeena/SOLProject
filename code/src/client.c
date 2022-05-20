@@ -147,13 +147,13 @@ int main(int argc, char *argv[]){
 		freeOptList(optlist);
 		return -1;
 	}
-	/*
+	
 	else{
 		if(verbose){
 			puts(BLUE "Connection estabilished." RESET);
 		}
 	}
-	*/
+	
 	OptNode* toget = getFirstOpt(optlist);
 	while(toget != NULL){
 		usleep(sleeptime);

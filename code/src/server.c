@@ -169,7 +169,7 @@ int main(int argc, char *argv[]){
 						struct tm* timestamp;
 						time(&rawtime);
 						timestamp = localtime(&rawtime);
-						fprintf(logfile, "\nClient[%d]\n\tRequest:  CONNECT\n\tResponse: OK\n\tTime:     %s", newconn, asctime(timestamp));
+						fprintf(logfile, "\nClient[%d]\n\tRequest: CONNECT\n\tResponse: OK\n\tTime: %s", newconn, asctime(timestamp));
 
 						//maxfd = (maxfd < newconn) ? newconn : maxfd;
 						if(newconn > maxfd){
@@ -253,6 +253,7 @@ void* work(void* args){
 		Response* res;
 
 		PERRNOTZERO(pthread_mutex_lock(&(wstorage->storagemtx)));
+		printFilepaths(wstorage->filepaths);
 
 		switch(req->code){
 
@@ -274,13 +275,17 @@ void* work(void* args){
 
 						File* evicted;
 						char* toevictpath;
-						PERRNULL((toevictpath = malloc(MAX_PATH * sizeof(char))));
+						PERRNULL((toevictpath = calloc(MAX_PATH * sizeof(char), 0)));
 						// checking on capacity misses
 						if(wstorage->currfiles+1 > wstorage->maxfiles){
 							PERRNEG(popFilepathList(wstorage->filepaths, toevictpath));
+							printf("toevictpath after popFilepathList = %s\n", toevictpath);
 							PERRNULL((evicted = icl_hash_find(wstorage->hashtable, toevictpath)));
+							printf("evicted->path = %s\n", evicted->path);
 							FileList* evictedlist;
 							PERRNULL((evictedlist = malloc(sizeof(FileList))));
+							evictedlist->size = 0;
+							evictedlist->head = evictedlist->tail = NULL;
 							PERRNEG(addFile(evictedlist, evicted));
 							PERRNULL((res = newResponse(RES_OK, evictedlist)));
 						}
@@ -288,8 +293,9 @@ void* work(void* args){
 						else{
 							PERRNULL((res = newResponse(RES_OK, NULL)));
 						}
+
 						if(strlen(toevictpath) != 0){
-							PERRNEG(icl_hash_delete(wstorage->hashtable, toevictpath, NULL, NULL));
+							PERRNEG(icl_hash_delete(wstorage->hashtable, evicted->path, NULL, NULL));
 							free(toevictpath);
 							wstorage->evicted++;
 							wstorage->currfiles--;
@@ -325,7 +331,6 @@ void* work(void* args){
 						if(wstorage->currfiles > wstorage->maxreachedfiles){
 							wstorage->maxreachedfiles = wstorage->currfiles;
 						}
-
 						PERRNOTZERO(pthread_mutex_unlock(&(wstorage->storagemtx)));
 					}
 				}
@@ -443,6 +448,8 @@ void* work(void* args){
 
 							FileList* filestosend;
 							PERRNULL((filestosend = malloc(sizeof(FileList))));
+							filestosend->size = 0;
+							filestosend->head = filestosend->tail = NULL;
 							PERRNOTZERO(addFile(filestosend, toread));
 							PERRNOTZERO(pthread_mutex_unlock(&(toread->ordering)));
 							PERRNOTZERO(pthread_mutex_unlock(&(toread->mtx)));
@@ -481,6 +488,8 @@ void* work(void* args){
 					int count;
 					FileList* filestosend;
 					PERRNULL((filestosend = malloc(sizeof(FileList))));
+					filestosend->size = 0;
+					filestosend->head = filestosend->tail = NULL;
 					while(currfilepathnode != NULL){
 
 						if(req->params > 0 && count == req->params){
@@ -526,9 +535,16 @@ void* work(void* args){
 				else{
 					File* towrite = icl_hash_find(wstorage->hashtable, req->path);
 					// checking if file exists in the storage
+
 					if(towrite == NULL){
 						PERRNOTZERO(pthread_mutex_unlock(&(wstorage->storagemtx)));
 						PERRNULL((res = newResponse(RES_NOTFOUND, NULL)));
+						PERRNEG(sendResponse(clientfd, res));
+						logprint(req, res, clientfd);
+					}
+					else if(towrite->datasize != 0){
+						PERRNOTZERO(pthread_mutex_unlock(&(wstorage->storagemtx)));
+						PERRNULL((res = newResponse(RES_DENIED, NULL)));
 						PERRNEG(sendResponse(clientfd, res));
 						logprint(req, res, clientfd);
 					}
@@ -547,13 +563,14 @@ void* work(void* args){
 								FileList* evictedlist;
 								PERRNULL((evictedlist = malloc(sizeof(FileList))));
 								evictedlist->size = 0;
-
+								evictedlist->head = evictedlist->tail = NULL;
 								while(wstorage->currsize + req->datasize > wstorage->maxsize){
 									char* toevictpath;
 									PERRNULL((toevictpath = malloc(MAX_PATH * sizeof(char))));
 									PERRNEG(popFilepathList(wstorage->filepaths, toevictpath));
+									printf("toevictpath = %s\n", toevictpath);
 									PERRNULL((evicted = icl_hash_find(wstorage->hashtable, toevictpath)));
-
+									//printf("evicted = %s\n",evicted->path);
 									// need to wait on readers/writers
 									PERRNOTZERO(pthread_mutex_lock(&(evicted->ordering)));
 									PERRNOTZERO(pthread_mutex_lock(&(evicted->mtx)));
@@ -585,6 +602,11 @@ void* work(void* args){
 									PERRNOTZERO(pthread_mutex_unlock(&(evicted->mtx)));
 									PERRNOTZERO(pthread_mutex_unlock(&(wstorage->storagemtx)));
 								}
+								/*
+								if(evictedlist->head != NULL){
+									printf("evictedlist->head->file->path = %s\n", evictedlist->head->file->path);
+								}
+								*/
 								PERRNULL((res = newResponse(RES_OK, evictedlist)));
 
 								PERRNOTZERO(pthread_mutex_lock(&(towrite->ordering)));
@@ -596,10 +618,10 @@ void* work(void* args){
 
 								towrite->writer = clientfd;
 								towrite->datasize = req->datasize;
-								if((towrite->data = malloc(strlen(req->data) * sizeof(char))) == NULL){
+								if((towrite->data = malloc(strlen(req->data)+1 * sizeof(char))) == NULL){
 									return (void*)-1;
 								}
-								memcpy(towrite->data, req->data, strlen(req->data) + 1);
+								memcpy(towrite->data, req->data, strlen(req->data));
 								towrite->creator = 0;
 								towrite->writer = 0;
 								wstorage->currsize += req->datasize;
@@ -646,6 +668,7 @@ void* work(void* args){
 						PERRNOTZERO(pthread_mutex_unlock(&(wstorage->storagemtx)));
 						PERRNULL((res = newResponse(RES_NOTFOUND, NULL)));
 						PERRNEG(sendResponse(clientfd, res));
+						logprint(req, res, clientfd);
 					}
 					else{
 						printFdList(toappend->openers);
@@ -655,11 +678,14 @@ void* work(void* args){
 								PERRNOTZERO(pthread_mutex_unlock(&(wstorage->storagemtx)));
 								PERRNULL((res = newResponse(RES_DENIED, NULL)));
 								PERRNEG(sendResponse(clientfd, res));
+								logprint(req, res, clientfd);
 							}
 							else{
 								File* evicted;
 								FileList* evictedlist;
-
+								PERRNULL((evictedlist = malloc(sizeof(FileList))));
+								evictedlist->size = 0;
+								evictedlist->head = evictedlist->tail = NULL;
 								while(wstorage->currsize + req->datasize > wstorage->maxsize){
 									char* toevictpath;
 									PERRNULL((toevictpath = malloc(MAX_PATH * sizeof(char))));
@@ -684,6 +710,7 @@ void* work(void* args){
 										PERRNEG(write(wpipe, pipebuffer, MAXPIPEBUFF));
 										FdNode* temp = evicted->lockwaiters->head;
 										PERRNEG(sendResponse(temp->fd, wres));
+										// add special logprint here?
 										freeResponse(wres);
 										evicted->lockwaiters->head = evicted->lockwaiters->head->next;
 										free(temp);
@@ -715,6 +742,7 @@ void* work(void* args){
 								PERRNOTZERO(pthread_mutex_unlock(&(wstorage->storagemtx)));
 
 								PERRNEG(sendResponse(clientfd, res));
+								logprint(req, res, clientfd);
 								//PERRNOTZERO(freeResponse(res));
 								//PERRNOTZERO(freeFileList(evictedlist));
 							}
@@ -724,6 +752,7 @@ void* work(void* args){
 							PERRNOTZERO(pthread_mutex_unlock(&(wstorage->storagemtx)));
 							PERRNULL((res = newResponse(RES_DENIED, NULL)));
 							PERRNEG(sendResponse(clientfd, res));
+							logprint(req, res, clientfd);
 							//PERRNOTZERO(freeResponse(res));
 						}
 
@@ -769,6 +798,7 @@ void* work(void* args){
 					}
 				}
 				PERRNEG(sendResponse(clientfd, res));
+				logprint(req, res, clientfd);
 				// sending clientfd back to main thread by pipe to make it available to be selected
 				snprintf(pipebuffer, MAXPIPEBUFF, "%04d", clientfd);
 				PERRNEG(write(wpipe, pipebuffer, MAXPIPEBUFF));
@@ -807,6 +837,7 @@ void* work(void* args){
 				}
 
 				PERRNEG(sendResponse(clientfd, res));
+				logprint(req, res, clientfd);
 				// sending clientfd back to main thread by pipe to make it available to be selected
 				snprintf(pipebuffer, MAXPIPEBUFF, "%04d", clientfd);
 				PERRNEG(write(wpipe, pipebuffer, MAXPIPEBUFF));
@@ -857,6 +888,7 @@ void* work(void* args){
 					}
 				}
 				PERRNEG(sendResponse(clientfd, res));
+				logprint(req, res, clientfd);
 				// sending clientfd back to main thread by pipe to make it available to be selected
 				snprintf(pipebuffer, MAXPIPEBUFF, "%04d", clientfd);
 				PERRNEG(write(wpipe, pipebuffer, MAXPIPEBUFF));
@@ -867,6 +899,10 @@ void* work(void* args){
 
 				FilepathNode* tocheckpath = wstorage->filepaths->head;
 				while(tocheckpath != NULL){
+
+					if(strlen(tocheckpath->filepath) == 0){
+						break;
+					}
 
 					File* tocheck = icl_hash_find(wstorage->hashtable, tocheckpath->filepath);
 
@@ -914,7 +950,7 @@ void* work(void* args){
 				strncpy(pipebuffer, "exit", strlen("exit"));
 				PERRNEG(write(wpipe, pipebuffer, MAXPIPEBUFF));
 				PERRNEG(sendResponse(clientfd, res));
-
+				logprint(req, res, clientfd);
 				close(clientfd);
 				break;
 			}
@@ -938,22 +974,18 @@ void logprint(Request* req, Response* res, int clientfd){
 	time(&rawtime);
 	timestamp = localtime(&rawtime);
 
-	fprintf(logfile, "\nClient[%d]\n\tWorker: %ld\n\tRequest: %s\n\tResponse: %s\n\tTime: %s", clientfd, (long)pthread_self(), stringifyCode(req->code), stringifyCode(res->code), asctime(timestamp));
+	fprintf(logfile, "\nClient[%d]\n\tWorker: %ld\n\tRequest: %s\n\t", clientfd, (long)pthread_self(), stringifyCode(req->code));
+	if(req->pathlen){
+		fprintf(logfile, "\tof file: %s\n", req->path);
+	} 
+	fprintf(logfile, "\tResponse: %s\n\tTime: %s",stringifyCode(res->code), asctime(timestamp));
 
 	if(req->datasize){
 		fprintf(logfile, "\tBytes Written: %d\n", req->datasize);
 	}
 
-	if(res->flistsize){
+	if(res->flistsize > 0 && res->flist->head != NULL){
 		int bytes = 0;
-		FileNode* temp = res->flist->head;
-		while(temp != NULL){
-			bytes += temp->file->datasize;
-			temp = temp->next;
-		}
-		fprintf(logfile, "\tBytes Read: %d\n", bytes);
-	}
-	if(res->flistsize != 0){
 		if(req->code == REQ_OPEN || req->code == REQ_WRITE){
 			fprintf(logfile, "\tEvictedFiles(%d):\n", res->flistsize);
 		}
@@ -961,10 +993,20 @@ void logprint(Request* req, Response* res, int clientfd){
 			fprintf(logfile, "\tFiles read(%d):\n", res->flistsize);
 		}
 		FileNode* temp = res->flist->head;
-		while(temp != NULL){
-			fprintf(logfile, "\t\t%s\n", temp->file->path);
+		while(temp != NULL && temp->file != NULL){
+			printf("temp->file->pathlen = %d\n", temp->file->pathlen);
+			printf("temp->file->path = %s\n", temp->file->path);
+			if(temp->file == NULL || temp->file->path == NULL){
+				break;
+			}
+			printf("temp->file->pathlen == %d\n", temp->file->pathlen);
+			if(temp->file->pathlen != 0){
+				fprintf(logfile, "\t\t%s\n", temp->file->path);
+			}
+			bytes += temp->file->datasize;
 			temp = temp->next;
 		}
+		fprintf(logfile, "\tBytes Read: %d\n", bytes);
 	}
 	//puts("--- log lock getting released ---");
 	PERRNOTZERO(pthread_mutex_unlock(&logmutex));

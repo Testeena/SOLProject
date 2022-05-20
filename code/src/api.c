@@ -8,7 +8,7 @@ int saveFiles(char* dirname, FileList* flist){
 		return -1;
 	}
 	dirpath = realpath(dirname, NULL);
-	if(dirpath[MAX_PATH-1] != '/'){
+	if(dirpath[strlen(dirpath)] != '/'){
 		strcat(dirpath, "/");
 	}
 	while(flist->size > 0){
@@ -240,6 +240,9 @@ int readNFiles(int N, const char* dirname){
 		}
 		else{
 			saveFiles((char*)dirname, res->flist);
+			if(verbose){
+				printResult(req, res);
+			}
 		}
 	}
 	else{
@@ -306,7 +309,7 @@ int writeFile(const char* pathname, const char* dirname){
 	}
 
 	if(res->code == RES_OK){
-		if(dirname == NULL){
+		if(dirname == NULL || strlen(dirname) == 0){
 			if(verbose){
 				printResult(req, res);
 				if(res->flistsize > 0){
