@@ -253,7 +253,6 @@ void* work(void* args){
 		Response* res;
 
 		PERRNOTZERO(pthread_mutex_lock(&(wstorage->storagemtx)));
-		printFilepaths(wstorage->filepaths);
 
 		switch(req->code){
 
@@ -279,9 +278,7 @@ void* work(void* args){
 						// checking on capacity misses
 						if(wstorage->currfiles+1 > wstorage->maxfiles){
 							PERRNEG(popFilepathList(wstorage->filepaths, toevictpath));
-							printf("toevictpath after popFilepathList = %s\n", toevictpath);
 							PERRNULL((evicted = icl_hash_find(wstorage->hashtable, toevictpath)));
-							printf("evicted->path = %s\n", evicted->path);
 							FileList* evictedlist;
 							PERRNULL((evictedlist = malloc(sizeof(FileList))));
 							evictedlist->size = 0;
@@ -568,7 +565,6 @@ void* work(void* args){
 									char* toevictpath;
 									PERRNULL((toevictpath = malloc(MAX_PATH * sizeof(char))));
 									PERRNEG(popFilepathList(wstorage->filepaths, toevictpath));
-									printf("toevictpath = %s\n", toevictpath);
 									PERRNULL((evicted = icl_hash_find(wstorage->hashtable, toevictpath)));
 									//printf("evicted = %s\n",evicted->path);
 									// need to wait on readers/writers
@@ -993,13 +989,10 @@ void logprint(Request* req, Response* res, int clientfd){
 			fprintf(logfile, "\tFiles read(%d):\n", res->flistsize);
 		}
 		FileNode* temp = res->flist->head;
-		while(temp != NULL && temp->file != NULL){
-			printf("temp->file->pathlen = %d\n", temp->file->pathlen);
-			printf("temp->file->path = %s\n", temp->file->path);
-			if(temp->file == NULL || temp->file->path == NULL){
+		for (int i = 0; i < res->flistsize; i++){
+			if(temp->file == NULL){
 				break;
 			}
-			printf("temp->file->pathlen == %d\n", temp->file->pathlen);
 			if(temp->file->pathlen != 0){
 				fprintf(logfile, "\t\t%s\n", temp->file->path);
 			}

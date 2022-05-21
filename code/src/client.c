@@ -143,7 +143,7 @@ int main(int argc, char *argv[]){
 	abstime.tv_sec = RETRY_TIME;
 
 	if((socketfd = openConnection(socketname, 1000, abstime)) == -1){
-		perror("Unable to connect to requested socket");
+		fprintf(stderr, RED "Unable to connect to requested socket\n" RESET);
 		freeOptList(optlist);
 		return -1;
 	}

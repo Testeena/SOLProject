@@ -1,12 +1,12 @@
 SHELL := /bin/bash
-CC = clang
+CC = gcc
 
-CFLAGS = -pthread -g -fsanitize=thread
+CFLAGS = -pthread
 
 BINS = bin
 OBJ = obj
 SRC = src
-HEADDIR = includes
+HEADDIR = includes 
 
 OBJC = obj/api.o obj/comms.o obj/optparsing.o obj/storage.o obj/icl_hash.o
 OBJS = obj/storage.o obj/requestqueue.o obj/comms.o obj/configparsing.o obj/icl_hash.o
@@ -29,6 +29,7 @@ test1: clean server client
 
 test2: clean server client
 	mkdir -p test2savedfiles/evicted
+	mkdir -p test2savedfiles/evicted2
 	bash ./scripts/test2.sh
 	bash ./statistiche.sh log.txt
 
@@ -43,6 +44,8 @@ $(OBJ)/%.o: $(SRC)/%.c $(HEADDIR)/%.h
 	$(CC) -c $(CFLAGS) $< -o $@ 
 
 clean:
+	mkdir -p $(OBJ)
+	mkdir -p $(BINS)
 	rm -f $(OBJ)/*.o
 	rm -r -f $(BINS)/*
 	rm -f *.sk
@@ -54,6 +57,6 @@ cleanall :
 	rm -r -f $(BINS)/*
 	rm -f log.txt
 	rm -f *.sk
-	rm -r test1savedfiles
-	rm -r test2savedfiles
-	rm -r test3savedfiles
+	rm -r -f test1savedfiles
+	rm -r -f test2savedfiles
+	rm -r -f test3savedfiles

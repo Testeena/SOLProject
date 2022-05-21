@@ -3,8 +3,11 @@
 PATH="$(pwd -P)"
 
 bin/server configs/config3.txt &
-SERVERPID=$!
-/bin/sleep 10 && kill -2 ${SERVERPID} &
+server=$!
+
+/bin/sleep 3
+
+/bin/sleep 10 && kill -2 ${server} &
 
 clientpids=()
 for i in {1..10}; do
@@ -18,6 +21,6 @@ for i in "${clientpids[@]}"; do
     wait ${i}
 done
 
-wait ${SERVERPID}
+wait ${server}
 
 exit 0
