@@ -3,9 +3,9 @@
 
 #include "utils.h"
 
-int socketfd;
-char* socketname;
 extern bool verbose;
+extern char* socketname;
+extern int socketfd;
 
 int openConnection(const char* sockname, int msec, const struct timespec abstime);
 int closeConnection(const char* sockname);

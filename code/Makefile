@@ -1,12 +1,12 @@
 SHELL := /bin/bash
 CC = gcc
 
-CFLAGS = -pthread
+CFLAGS = -pthread -g -std=c99
 
 BINS = bin
 OBJ = obj
 SRC = src
-HEADDIR = includes 
+HEADDIR = includes
 
 OBJC = obj/api.o obj/comms.o obj/optparsing.o obj/storage.o obj/icl_hash.o
 OBJS = obj/storage.o obj/requestqueue.o obj/comms.o obj/configparsing.o obj/icl_hash.o
@@ -44,8 +44,6 @@ $(OBJ)/%.o: $(SRC)/%.c $(HEADDIR)/%.h
 	$(CC) -c $(CFLAGS) $< -o $@ 
 
 clean:
-	mkdir -p $(OBJ)
-	mkdir -p $(BINS)
 	rm -f $(OBJ)/*.o
 	rm -r -f $(BINS)/*
 	rm -f *.sk

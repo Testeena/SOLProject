@@ -1,8 +1,17 @@
+#define _DEFAULT_SOURCE
+
 #include "../includes/api.h"
 #include "../includes/comms.h"
 
 int saveFiles(char* dirname, FileList* flist){
 
+	if(flist == NULL){
+		return -1;
+	}
+
+	if(dirname == NULL){
+		return -1;
+	}
 	char* dirpath;
 	if((dirpath = calloc(MAX_PATH, sizeof(char))) == NULL){
 		return -1;
@@ -15,7 +24,7 @@ int saveFiles(char* dirname, FileList* flist){
 		File* temp;
 		temp = popFile(flist);
 		char* filepath;
-		if((filepath = calloc(sizeof(char) * MAX_PATH, 0)) == NULL){
+		if((filepath = calloc(sizeof(char) * MAX_PATH, sizeof(char))) == NULL){
 			return -1;
 		}
 		strncpy(filepath, dirpath, strlen(dirpath));
@@ -28,7 +37,7 @@ int saveFiles(char* dirname, FileList* flist){
 		fwrite(temp->data, sizeof(char), temp->datasize, towrite);
 		fclose(towrite);
 		if(verbose){
-			printf(GREEN "File '%s' saved in '%s'.\n" RESET, temp->path, basename(dirname));
+			printf(GREEN "File '%s' saved in '%s'.\n" RESET, basename(filepath), dirname);
 		}
 	}
 	return 0;
@@ -66,7 +75,6 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
 	PERRNEG((socketfd = socket(AF_UNIX, SOCK_STREAM, 0)));
 
 	struct sockaddr_un socketaddress;
-	// change 104 to UNIX_PATH_MAX
 	strncpy(socketaddress.sun_path, socketname, 104);
 	socketaddress.sun_family = AF_UNIX;
 
@@ -116,6 +124,9 @@ int closeConnection(const char* sockname){
 		if(close(socketfd) == -1){
 			return -1;
 		}
+		if(verbose){
+			puts(BLUE "Connection closed." RESET);
+		}
 	}
 
 	return 0;
@@ -132,11 +143,9 @@ int openFile(const char* pathname, int flags){
 		errno = ENOMEM;
 		return -1;
 	}
-
 	if(sendRequest(socketfd, req) == -1){
 		return -1;
 	}
-
 	Response* res;
 	if((res = malloc(sizeof(Response))) == NULL){
 		return -1;
@@ -145,10 +154,7 @@ int openFile(const char* pathname, int flags){
 	if(getResponse(socketfd, res) == -1){
 		return -1;
 	}
-
 	printResult(req, res);
-	//freeRequest(req);
-
 	if(res->flistsize > 0 && verbose){
 		printf("Server Eviction of %s done.\n", res->flist->head->file->path);
 	}
@@ -156,12 +162,10 @@ int openFile(const char* pathname, int flags){
 	if(res->code != RES_OK){
 		return 1;
 	}
-
 	return 0;
 }
 
 int readFile(const char* pathname, void** buf, size_t* size){
-
 	if(pathname == NULL || strlen(pathname) == 0){
 		errno = EINVAL;
 		return -1;
@@ -172,27 +176,22 @@ int readFile(const char* pathname, void** buf, size_t* size){
 		errno = ENOMEM;
 		return -1;
 	}
-
 	if(sendRequest(socketfd, req) == -1){
 		return -1;
 	}
-
 	Response* res;
 	if((res = malloc(sizeof(Response))) == NULL){
 		return -1;
 	}
-
 	if(getResponse(socketfd, res) == -1){
 		return -1;
 	}
-
 	printResult(req, res);
 	if(res->code == RES_OK){
 		*size = res->flist->head->file->datasize;
 		*buf = res->flist->head->file->data;
 	}
-	//freeRequest(req);
-	if(res->code != RES_OK){
+	else{
 		return 1;
 	}
 
@@ -200,7 +199,6 @@ int readFile(const char* pathname, void** buf, size_t* size){
 }
 
 int readNFiles(int N, const char* dirname){
-
 	if(N < 0){
 		errno = EINVAL;
 		return -1;
@@ -220,7 +218,6 @@ int readNFiles(int N, const char* dirname){
 	if((res = malloc(sizeof(Response))) == NULL){
 		return -1;
 	}
-
 	if(getResponse(socketfd, res) == -1){
 		return -1;
 	}
@@ -248,7 +245,6 @@ int readNFiles(int N, const char* dirname){
 	else{
 		printResult(req,res);
 	}
-	freeRequest(req);
 	return 0;
 }
 
@@ -326,9 +322,8 @@ int writeFile(const char* pathname, const char* dirname){
 		}
 	}
 	else{
-		printResult(req,res);
+		printResult(req, res);
 	}
-	freeRequest(req);
 	return 0;
 }
 
@@ -346,13 +341,10 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
 		errno = ENOMEM;
 		return -1;
 	}
-
 	if(sendRequest(socketfd, req) == -1){
 		return -1;
 	}
-
 	Response* res;
-
 	if((res = malloc(sizeof(Response))) == NULL){
 		return -1;
 	}
@@ -360,7 +352,6 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
 	if(getResponse(socketfd, res) == -1){
 		return -1;
 	}
-
 	if(res->code == RES_OK){
 		if(dirname == NULL){
 			if(verbose){
@@ -381,7 +372,6 @@ int appendToFile(const char* pathname, void* buf, size_t size, const char* dirna
 	else{
 		printResult(req,res);
 	}
-	freeRequest(req);
 	return 0;
 }
 
@@ -402,13 +392,15 @@ int lockFile(const char* pathname){
 	}
 
 	Response* res;
+	if((res = malloc(sizeof(Response))) == NULL){
+		return -1;
+	}
+
 	if(getResponse(socketfd, res) == -1){
 		return -1;
 	}
 
 	printResult(req, res);
-
-	freeRequest(req);
 	return 0;
 	
 }
@@ -440,8 +432,6 @@ int unlockFile(const char* pathname){
 	}
 
 	printResult(req, res);
-
-	freeRequest(req);
 	return 0;
 }
 
@@ -451,30 +441,22 @@ int closeFile(const char* pathname){
 		errno = EINVAL;
 		return -1;
 	}
-
 	Request* req;
 	if((req = newRequest(REQ_CLOSE, 0, 0, strlen(pathname), 0, (char*)pathname, NULL)) == NULL){
 		errno = ENOMEM;
 		return -1;
 	}
-
 	if(sendRequest(socketfd, req) == -1){
 		return -1;
 	}
-
 	Response* res;
-
 	if((res = malloc(sizeof(Response))) == NULL){
 		return -1;
 	}
-
 	if(getResponse(socketfd, res) == -1){
 		return -1;
 	}
-
 	printResult(req, res);
-
-	//freeRequest(req);
 	return 0;
 }
 
@@ -511,7 +493,6 @@ int removeFile(const char* pathname){
 
 	printResult(req, res);
 
-	freeRequest(req);
 	return 0;
 }
 

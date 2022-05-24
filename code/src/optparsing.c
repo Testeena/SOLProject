@@ -9,8 +9,9 @@ int putOpt(OptList* list, char opt, char* args){
 	}
 
 	toput->opt = opt;
+	toput->next = NULL;
 	
-	if((toput->arg = malloc(strlen(args) * sizeof(char))) == NULL){
+	if((toput->arg = calloc(strlen(args)+1 * sizeof(char), 1)) == NULL){
 		return -1;
 	}
 
@@ -40,6 +41,7 @@ OptNode* getFirstOpt(OptList* list){
 }
 
 OptNode* getdnode(OptList* list){
+
 	if(list == NULL || list->head == NULL){
 		return NULL;
 	}
@@ -52,19 +54,19 @@ OptNode* getdnode(OptList* list){
 			return toreturn;
 		}
 
-		if(temp->next == NULL){
-			return NULL;
-		}
-
-		while(temp != NULL && temp->next->opt != 'd'){
-			if(temp == NULL){
-				return NULL;
+		while(temp->next != NULL){
+			if(temp->next->opt == 'd'){
+				toreturn = temp->next;
+				temp->next = temp->next->next;
+				return toreturn;
+			}
+			if(temp->next == NULL){
+				break;
 			}
 			temp = temp->next;
 		}
-		toreturn = temp->next;
-		temp->next = temp->next->next;
-		return toreturn;
+		
+		return NULL;
 	}
 } 
 
@@ -81,15 +83,14 @@ OptNode* getDnode(OptList* list){
 			return toreturn;
 		}
 
-		while(temp != NULL){
-			if(temp == NULL || temp->next == NULL){
-				return NULL;
-			}
-
+		while(temp->next != NULL){
 			if(temp->next->opt == 'D'){
 				toreturn = temp->next;
 				temp->next = temp->next->next;
 				return toreturn;
+			}
+			if(temp->next == NULL){
+				break;
 			}
 			temp = temp->next;
 		}

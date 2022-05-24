@@ -1,13 +1,11 @@
 #!/bin/bash
 
-PATH="$(pwd -P)"
-
 bin/server configs/config3.txt &
 server=$!
 
-/bin/sleep 3
+/bin/sleep 2
 
-/bin/sleep 10 && kill -2 ${server} &
+/bin/sleep 30 && kill -2 ${server} &
 
 clientpids=()
 for i in {1..10}; do

@@ -9,7 +9,7 @@ RequestQueue* newRequestQueue(int maxsize){
 	}
 
 	RequestQueue* new;
-	if((new = malloc(sizeof(RequestQueue))) == NULL){
+	if((new = calloc(sizeof(RequestQueue), sizeof(RequestQueue))) == NULL){
 		return NULL;
 	}
 
@@ -19,18 +19,21 @@ RequestQueue* newRequestQueue(int maxsize){
 
 	new->head = new->tail = NULL;
 	new->maxsize = maxsize;
+	new->currentsize = 0;
 
 	return new;
 }
 
 int freeRequestQueue(RequestQueue* queue){
-
-	while(queue->currentsize != 0){
+	PERRNOTZERO((pthread_mutex_lock(&(queue->queuemtx))));
+	while(queue->head != NULL){
 		ReqNode* temp = queue->head;
-		queue->head = (ReqNode*)queue->head->next;
+		queue->head = queue->head->next;
 		queue->currentsize--;
+		temp->next = NULL;
 		free(temp);
 	}
+	PERRNOTZERO((pthread_mutex_unlock(&(queue->queuemtx))));
 
 	PERRNOTZERO(pthread_cond_destroy(&(queue->empty)));
 	PERRNOTZERO(pthread_cond_destroy(&(queue->full)));
@@ -68,7 +71,6 @@ int putRequestor(RequestQueue* queue, int fd){
 		queue->tail->next = (ReqNode*)toput;
 		queue->tail = (ReqNode*)toput;
 	}
-
 	queue->currentsize++;
 
 	if(queue->currentsize == 1){
@@ -92,9 +94,12 @@ int getRequestor(RequestQueue* queue){
 		PERRNOTZERO(pthread_cond_wait((&queue->empty), &(queue->queuemtx)));
 	}
 
+	int req;
 	ReqNode* temp = queue->head;
 	queue->head = (ReqNode*)queue->head->next;
 	queue->currentsize--;
+	req = temp->fd;
+	free(temp);
 
 	if(queue->head == NULL){
 		queue->tail = NULL;
@@ -106,59 +111,14 @@ int getRequestor(RequestQueue* queue){
 
 	PERRNOTZERO(pthread_mutex_unlock(&(queue->queuemtx)));
 
-	return temp->fd;
+	return req;
 }
 
 void printqueue(RequestQueue* queue){
-
 	ReqNode* temp = queue->head;
-
 	while(temp != NULL){
 		printf("%d->", temp->fd);
 		temp = temp->next;
 	}
-
 	puts("NULL");
-
 }
-/*
-int main(int argc, char const *argv[]){
-	
-	RequestQueue* queue = newRequestQueue(5);
-
-	for (int i = 1; i < 6; i++){
-		printf("putRequest responsecode: %d\n", putRequest(queue, i));
-	}
-	printqueue(queue);
-	int result = 0;
-	for (int i = 1; i < 6; i++){
-		result = getRequest(queue);
-		printf("getRequest result: %d\n", result);
-		printqueue(queue);
-	}
-
-	return 0;
-}
-
-*/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

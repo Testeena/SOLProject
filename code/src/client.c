@@ -1,3 +1,5 @@
+#define _DEFAULT_SOURCE
+
 #include "../includes/utils.h"
 #include "../includes/optparsing.h"
 #include "../includes/api.h"
@@ -7,6 +9,8 @@
 #define DEFAULT_SOCKNAME "solsock.sk"
 
 bool verbose = false;
+char* socketname;
+int socketfd;
 
 void help(void);
 int makeApiCall(OptNode* option, char* evictedDir, char* saveDir);
@@ -23,7 +27,6 @@ int main(int argc, char *argv[]){
 	
 	long sleeptime = 0;
 
-	bool alreadyhelped = false;
 	bool alreadyf = false;
 	bool lookforD = false;
 	bool lookford = false;
@@ -35,12 +38,11 @@ int main(int argc, char *argv[]){
 		switch(opt){
 		case 'h':
 			help();
-			alreadyhelped = true;
 			exit(EXIT_FAILURE);
 			break;
 		case 'f':
 			if(!alreadyf){
-				if((socketname = malloc(strlen(optarg) * sizeof(char))) == NULL){
+				if((socketname = calloc(strlen(optarg)+1 * sizeof(char), sizeof(char))) == NULL){
 					return -1;
 				}
 				strncpy(socketname, optarg, strlen(optarg));
@@ -143,7 +145,9 @@ int main(int argc, char *argv[]){
 	abstime.tv_sec = RETRY_TIME;
 
 	if((socketfd = openConnection(socketname, 1000, abstime)) == -1){
-		fprintf(stderr, RED "Unable to connect to requested socket\n" RESET);
+		if(verbose){
+			fprintf(stderr, RED "Unable to connect to requested socket\n" RESET);
+		}
 		freeOptList(optlist);
 		return -1;
 	}
@@ -164,12 +168,16 @@ int main(int argc, char *argv[]){
 			//maybe tokenize && make safe 'arg' before passing it (?)
 			if(Dtemp != NULL){
 				if(makeApiCall(toget, Dtemp->arg, NULL) == -1){
-					fprintf(stderr, "makeApiCall error\n");
+					if(verbose){
+						fprintf(stderr, "makeApiCall error\n");
+					}
 				}
 			}
 			else{
 				if(makeApiCall(toget, NULL, NULL) == -1){
-					fprintf(stderr, "makeApiCall error\n");
+					if(verbose){
+						fprintf(stderr, "makeApiCall error\n");
+					}
 				}
 			}
 			free(Dtemp);
@@ -181,9 +189,10 @@ int main(int argc, char *argv[]){
 				return -1;
 			}
 			dtemp = getdnode(optlist);
-			//maybe tokenize && make safe 'arg' before passing it (?)
+
 			if(dtemp != NULL){
 				if(makeApiCall(toget, NULL, dtemp->arg) == -1){
+					printf("%s\n", dtemp->arg);
 					fprintf(stderr, "makeApiCall error\n");
 				}
 			}
@@ -206,19 +215,6 @@ int main(int argc, char *argv[]){
 	if(closeConnection(socketname) == -1){
 		perror("closeConnection error");
 	}
-	/*
-	else{
-		if(verbose){
-			puts(BLUE "Connection closed." RESET);
-		}
-	}
-	*/
-	/*
-	freeOptNode(toget);
-	puts("HELLO");
-	freeOptList(optlist);
-	puts("HIIIIIIII");
-	*/
 	return 0;
 }
 
@@ -228,14 +224,13 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 		errno = EINVAL;
 		return -1;
 	}
-
 	switch(option->opt){
 		case 'w':
 			;
 			// recursively opening passed directory, writing n (or all) files found
 			char* absdirpathw;
-			if((absdirpathw = malloc(PATH_MAX * sizeof(char))) == NULL){
-				perror("dirpath malloc error");
+			if((absdirpathw = calloc(PATH_MAX * sizeof(char),sizeof(char))) == NULL){
+				perror("dirpath calloc error");
 				return -1;
 			}
 			absdirpathw = realpath(strtok(option->arg, ","), NULL);
@@ -253,8 +248,8 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 			char* filetokenW = strtok(option->arg, ",");
 			while(filetokenW != NULL){
 				char* fileabspathW;
-				if((fileabspathW = malloc(PATH_MAX * sizeof(char))) == NULL){
-					perror("filepath malloc error");
+				if((fileabspathW = calloc(PATH_MAX * sizeof(char), sizeof(char))) == NULL){
+					perror("filepath calloc error");
 					return -1;
 				}
 				fileabspathW = realpath(filetokenW, NULL);
@@ -291,7 +286,7 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 				    rewind(file);
 
 				    char* data;
-				    if((data = malloc(datalen * sizeof(char))) == NULL){
+				    if((data = calloc(datalen * sizeof(char), sizeof(char))) == NULL){
 				    	return -1;
 				    }
 
@@ -309,9 +304,6 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 						perror("closeFile error");
 						return -1;
 					}
-
-					//puts("going to free data");
-				    //free(data);
 				}
 				else{
 					perror("openFile error");
@@ -325,12 +317,11 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 			char* filetokenr = strtok(option->arg, ",");
 			while(filetokenr != NULL){
 				char* fileabspathr;
-				if((fileabspathr = malloc(PATH_MAX * sizeof(char))) == NULL){
-					perror("filepath malloc error");
+				if((fileabspathr = calloc(PATH_MAX * sizeof(char), sizeof(char))) == NULL){
+					perror("filepath calloc error");
 					return -1;
 				}
 				fileabspathr = realpath(filetokenr, NULL);
-
 				if(openFile(fileabspathr, O_NONE) == -1){
 					perror("openFile error");
 					return -1;
@@ -338,15 +329,15 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 
 				void* buf;
 				size_t bufsize;
-
-				if(readFile(fileabspathr, &buf, &bufsize) == 0){
-					if(opendir(saveDir)){
+				int ret = readFile(fileabspathr, &buf, &bufsize);
+				if(ret == 0){
+					if(saveDir){
 						char* newfilepath;
-						if((newfilepath = calloc(MAX_PATH * sizeof(char), 0)) == NULL){
+						if((newfilepath = calloc(MAX_PATH * sizeof(char), sizeof(char))) == NULL){
 							return -1;
 						}
 						strncpy(newfilepath, saveDir, strlen(saveDir));
-						if(newfilepath[MAX_PATH-1] != '/'){
+						if(newfilepath[strlen(newfilepath)] != '/'){
 							strcat(newfilepath, "/");
 						}
 						strcat(newfilepath, basename(fileabspathr));
@@ -369,7 +360,7 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 						}
 					}
 				}
-				else{
+				else if(ret == -1){
 					perror("readFile error");
 					return -1;
 				}
@@ -384,8 +375,8 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 		case 'R':
 			;
 			char* absdirpathR;
-			if((absdirpathR = malloc(PATH_MAX * sizeof(char))) == NULL){
-				perror("filepath malloc error");
+			if((absdirpathR = calloc(PATH_MAX * sizeof(char), sizeof(char))) == NULL){
+				perror("filepath calloc error");
 				return -1;
 			}
 			absdirpathR = realpath(strtok(option->arg, ","), NULL);
@@ -406,8 +397,8 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 			char* filetokenl = strtok(option->arg, ",");
 			while(filetokenl != NULL){
 				char* fileabspathl;
-				if((fileabspathl = malloc(PATH_MAX * sizeof(char))) == NULL){
-					perror("filepath malloc error");
+				if((fileabspathl = calloc(PATH_MAX * sizeof(char), sizeof(char))) == NULL){
+					perror("filepath calloc error");
 					return -1;
 				}
 				fileabspathl = realpath(filetokenl, NULL);
@@ -434,8 +425,8 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 			char* filetokenu = strtok(option->arg, ",");
 			while(filetokenu != NULL){
 				char* fileabspathu;
-				if((fileabspathu = malloc(PATH_MAX * sizeof(char))) == NULL){
-					perror("filepath malloc error");
+				if((fileabspathu = calloc(PATH_MAX * sizeof(char), sizeof(char))) == NULL){
+					perror("filepath calloc error");
 					return -1;
 				}
 				fileabspathu = realpath(filetokenu, NULL);
@@ -462,8 +453,8 @@ int makeApiCall(OptNode* option, char* evictedDir, char* saveDir){
 			char* filetokenc = strtok(option->arg, ",");
 			while(filetokenc != NULL){
 				char* fileabspathc;
-				if((fileabspathc = malloc(PATH_MAX * sizeof(char))) == NULL){
-					perror("filepath malloc error");
+				if((fileabspathc = calloc(PATH_MAX * sizeof(char), sizeof(char))) == NULL){
+					perror("filepath calloc error");
 					return -1;
 				}
 				fileabspathc = realpath(filetokenc, NULL);
@@ -525,8 +516,8 @@ int recDirWrite(char* dirpath, int n, char* evictedDir){
 			if(!S_ISDIR(filestats.st_mode)){
 				// found file is not a directory: actual write request need to be done here
 				char* fileabspath;
-				if((fileabspath = malloc(PATH_MAX * sizeof(char))) == NULL){
-					perror("filepath malloc error");
+				if((fileabspath = calloc(PATH_MAX * sizeof(char), sizeof(char))) == NULL){
+					perror("filepath calloc error");
 					return -1;
 				}
 				fileabspath = realpath(temppath, NULL);
@@ -556,7 +547,7 @@ int recDirWrite(char* dirpath, int n, char* evictedDir){
 				    rewind(file);
 
 				    char* data;
-				    if((data = malloc(datalen * sizeof(char))) == NULL){
+				    if((data = calloc(datalen * sizeof(char), sizeof(char))) == NULL){
 				    	return -1;
 				    }
 
@@ -604,19 +595,3 @@ void help(void){
 		"-c <file1>[,file2]            sends delete request for the file list passed\n"\
 		"-p                            enables verbose prints for operations and errors\n");
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

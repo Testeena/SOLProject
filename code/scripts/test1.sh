@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # valgrind --leak-check=full
-bin/server configs/config1.txt &
+valgrind --leak-check=full bin/server configs/config1.txt &
 serverpid=$!
 
 /bin/sleep 2

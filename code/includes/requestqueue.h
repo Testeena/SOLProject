@@ -37,3 +37,4 @@ RequestQueue* newRequestQueue(int maxsize);
 int freeRequestQueue(RequestQueue* queue);
 int putRequestor(RequestQueue* queue, int fd);
 int getRequestor(RequestQueue* queue);
+void printqueue(RequestQueue* queue);

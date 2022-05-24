@@ -27,11 +27,11 @@ int parseFile(configList* outcome, char* toparse){
 		if(line[0] == '\n' || line[0] == '#') continue;
 
 		configNode* toput;
-		if((toput = malloc(sizeof(configNode))) == NULL){
+		if((toput = calloc(sizeof(configNode), sizeof(configNode))) == NULL){
 			return -1;
 		}
 		char* token = strtok(line, "=");
-		if((toput->name = malloc(strlen(token) * sizeof(char))) == NULL){
+		if((toput->name = calloc((strlen(token)+1) * sizeof(char), sizeof(char))) == NULL){
 			return -1;
 		}
 		strncpy(toput->name, token, strlen(token));
@@ -39,7 +39,7 @@ int parseFile(configList* outcome, char* toparse){
 			free(toput);
 			return -1;
 		}
-		if((toput->value = malloc(strlen(token) * sizeof(char))) == NULL){
+		if((toput->value = calloc((strlen(token)+1)* sizeof(char), sizeof(char))) == NULL){
 			return -1;
 		}
 		strncpy(toput->value, token, strlen(token));
@@ -107,31 +107,31 @@ void getConfigs(configList* parsed, long* maxstorage, long* maxnfiles, long* nwo
 
 	temp = temp->next;
 	if((strcmp(temp->name, "SOCKNAME") == 0)){
-		if((*sockname = (char*)malloc(strlen(temp->value) * sizeof(char))) == NULL){
+		if((*sockname = (char*)calloc(strlen(temp->value)+1 * sizeof(char), sizeof(char))) == NULL){
 			perror("couldnt allocate enough memory");
 			return;
-		}
+		};
 		strncpy(*sockname, temp->value, strlen(temp->value));
 	} else{
-		if((*sockname = (char*)malloc(strlen(DEFAULT_SOCKNAME) * sizeof(char))) == NULL){
+		if((*sockname = (char*)calloc(strlen(DEFAULT_SOCKNAME)+1 * sizeof(char), sizeof(char))) == NULL){
 			perror("couldnt allocate enough memory");
 			return;
 		}
-		strncpy(*sockname, DEFAULT_SOCKNAME, strlen(DEFAULT_SOCKNAME));
+		strcpy(*sockname, DEFAULT_SOCKNAME);
 	}
 
 	temp = temp->next;
 	if((strcmp(temp->name, "LOGFILENAME") == 0)){
-		if((*logfilename = (char*)malloc(strlen(temp->value) * sizeof(char))) == NULL){
+		if((*logfilename = (char*)calloc(strlen(temp->value)+1 * sizeof(char), sizeof(char))) == NULL){
 			perror("couldnt allocate enough memory");
 			return;
 		}
 		strncpy(*logfilename, temp->value, strlen(temp->value));
 	} else{
-		if((*logfilename = (char*)malloc(strlen(DEFAULT_LOGFILENAME) * sizeof(char))) == NULL){
+		if((*logfilename = (char*)calloc(strlen(DEFAULT_LOGFILENAME)+1 * sizeof(char), sizeof(char))) == NULL){
 			perror("couldnt allocate enough memory");
 			return;
 		}
-		strncpy(*logfilename, DEFAULT_LOGFILENAME, strlen(DEFAULT_LOGFILENAME));
+		strcpy(*logfilename, DEFAULT_LOGFILENAME);
 	}
 }

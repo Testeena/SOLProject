@@ -66,6 +66,9 @@ int removeFd(FdList* list, int fd){
 			return 0;
 		}
 		else{
+			if(temp->next == NULL){
+				return 0;
+			}
 			while(temp->next->fd != fd && temp != NULL){
 				temp = temp->next;
 			}
@@ -107,11 +110,15 @@ void printFdList(FdList* list){
 }
 
 int freeFdList(FdList* list){
+	if(list == NULL){
+		return 0;
+	}
 	while(list->head != NULL){
 		FdNode* temp = list->head;
 		list->head = list->head->next;
 		free(temp);
 	}
+	free(list);
 	return 0;
 }
 
@@ -124,7 +131,7 @@ File* newFile(char* filepath, char* data){
 		return NULL;
 	}
 
-	if((new->path = malloc(MAX_PATH * sizeof(char))) == NULL){
+	if((new->path = calloc(MAX_PATH * sizeof(char), sizeof(char))) == NULL){
 		free(new);
 		return NULL;
 	}
@@ -132,14 +139,12 @@ File* newFile(char* filepath, char* data){
 	new->pathlen = strlen(filepath);
 	strncpy(new->path, filepath, MAX_PATH);
 	strcat(new->path, "\0");
+	new->datasize = 0;
+	new->data = NULL;
 
-	if(data == NULL){
-		new->datasize = 0;
-		new->data = NULL;
-	}
-	else{
+	if(data != NULL){
 		new->datasize = strlen(data);
-		if((new->data = malloc(strlen(data) * sizeof(char))) == NULL){
+		if((new->data = calloc(strlen(data) * sizeof(char), sizeof(char))) == NULL){
 			free(new->path);
 			free(new);
 			return NULL;
@@ -147,6 +152,10 @@ File* newFile(char* filepath, char* data){
 		strncpy(new->data, data, strlen(data));
 	}
 
+	new->writer = 0;
+	new->readers = 0;
+	new->creator = 0;
+	new->locker = 0;
 	new->lockwaiters = newFdList();
 	new->openers = newFdList();
 	PERRNOTZERO(pthread_mutex_init(&(new->mtx), NULL));
@@ -157,30 +166,35 @@ File* newFile(char* filepath, char* data){
 }
 
 File* newcommsFile(char* filepath, char* data){
+
 	File* new;
-	if((new = malloc(sizeof(File))) == NULL){
+	if((new = calloc(sizeof(File), sizeof(File))) == NULL){
 		return NULL;
 	}
-
+	
 	new->pathlen = strlen(filepath);
-	if((new->path = malloc(MAX_PATH * sizeof(char))) == NULL){
+	if((new->path = calloc(MAX_PATH+1 * sizeof(char), sizeof(char))) == NULL){
 		free(new);
 		return NULL;
 	}
 	strncpy(new->path, filepath, strlen(filepath));
-	if(data == NULL){
-		new->datasize = 0;
-		new->data = NULL;
-	}
-	else{
+	new->datasize = 0;
+	new->data = NULL;
+
+	if(data != NULL){
 		new->datasize = strlen(data);
-		if((new->data = malloc(strlen(data) * sizeof(char))) == NULL){
+		if((new->data = calloc(strlen(data)+1 * sizeof(char), sizeof(char))) == NULL){
 			free(new->path);
 			free(new);
 			return NULL;
 		}
 		strncpy(new->data, data, strlen(data));
 	}
+
+	new->writer = 0;
+	new->readers = 0;
+	new->creator = 0;
+	new->locker = 0;
 	new->lockwaiters = NULL;
 	new->openers = NULL;
 
@@ -188,6 +202,7 @@ File* newcommsFile(char* filepath, char* data){
 }
 
 void freeFile(File* file){
+
 	if(file->path != NULL){
 		free(file->path);
 	}
@@ -196,7 +211,7 @@ void freeFile(File* file){
 		free(file->data);
 	}
 
-	if(file != NULL && file->lockwaiters != NULL){
+	if(file != NULL){
 		freeFdList(file->lockwaiters);
 		freeFdList(file->openers);
 		PERRNOTZERO(pthread_cond_destroy(&(file->writecond)));
@@ -215,8 +230,9 @@ int addFilepath(FilepathList* list , char* filepath){
 	if((new = malloc(sizeof(FilepathNode))) == NULL){
 		return -1;
 	}
+	new->next = NULL;
 
-	if((new->filepath = malloc(strlen(filepath) * sizeof(char))) == NULL){
+	if((new->filepath = calloc(strlen(filepath)+1 * sizeof(char), sizeof(char))) == NULL){
 		free(new);
 		return -1;
 	} 
@@ -285,7 +301,7 @@ int deleteFilepathNode(FilepathList* list, char* path){
 	return -1;
 }
 
-int freeFilepathList(FilepathList* list){
+int freeFilepathList(FilepathList* list, icl_hash_t* ht){
 
 	if(list == NULL || list->head == NULL){
 		return 0;
@@ -295,9 +311,13 @@ int freeFilepathList(FilepathList* list){
 		while(list->head != NULL){
 			FilepathNode* temp = list->head;
 			list->head = list->head->next;
+			File* tofree;
+			PERRNULL((tofree = icl_hash_find(ht, temp->filepath)));
+			freeFile(tofree);
 			free(temp->filepath);
 			free(temp);
 		}
+		free(list);
 		return 0;
 	}
 
@@ -336,18 +356,8 @@ Storage* newStorage(int maxfiles, int maxsize){
 		return NULL;
 	}
 
-	if((storage->filepaths->head = malloc(sizeof(FilepathNode))) == NULL){
-		free(storage->filepaths);
-		free(storage);
-		return NULL;
-	}
-
-	if((storage->filepaths->tail = malloc(sizeof(FilepathNode))) == NULL){
-		free(storage->filepaths);
-		free(storage);
-		return NULL;
-	}
-	storage->filepaths->head = storage->filepaths->tail = NULL;
+	storage->filepaths->head = NULL;
+	storage->filepaths->tail = NULL;
 
 	// hashtable initialization
 
@@ -362,6 +372,11 @@ Storage* newStorage(int maxfiles, int maxsize){
 	PERRNOTZERO(pthread_mutex_init(&(storage->storagemtx), NULL));
 
 	// internal variables set
+	storage->evicted = 0;
+	storage->maxreachedsize = 0;
+	storage->maxreachedfiles = 0;
+	storage->currfiles = 0;
+	storage->currsize = 0;
 	storage->maxfiles = maxfiles;
 	storage->maxsize = maxsize;
 
@@ -376,7 +391,7 @@ int freeStorage(Storage* storage){
 		return -1;
 	}
 
-	PERRNEG(freeFilepathList(storage->filepaths));
+	PERRNEG(freeFilepathList(storage->filepaths, storage->hashtable));
 	PERRNEG(icl_hash_destroy(storage->hashtable, NULL, NULL));
 	PERRNEG(pthread_mutex_destroy(&(storage->storagemtx)));
 	free(storage);

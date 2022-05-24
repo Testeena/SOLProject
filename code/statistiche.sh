@@ -9,19 +9,19 @@ echo -e "-------------------------- LOGFILE STATS --------------------------"
 echo -e -n "Number of reads:           "
 grep "READ" $1 | wc -l
 
-echo -e -n "Average Bytes Read:               "
+echo -e -n "Average Bytes Read:        "
 grep "Bytes Read" $1 | cut -d " " -f 3 | awk '{SUM += $1; COUNT += 1} END {if(COUNT > 0){print int(SUM/COUNT)}else{print "0"}}'
 
 echo -e -n "Number of writes:          "
 grep "WRITE" $1 | wc -l
 
-echo -e -n "Average Bytes Written:            "
+echo -e -n "Average Bytes Written:     "
 grep "Bytes Written" $1 | cut -d " " -f 3 | awk '{SUM += $1; COUNT += 1} END {if(COUNT > 0){print int(SUM/COUNT)}else{print "0"}}'
 
-echo -e -n "Number of open:             "
+echo -e -n "Number of open:            "
 grep "OPEN" $1 | wc -l
 
-echo -e -n "Number of closes:           "
+echo -e -n "Number of closes:          "
 grep "CLOSE" $1 | wc -l
 
 echo -e -n "Number of locks:           "
@@ -29,12 +29,3 @@ grep "LOCK" $1 | wc -l
 
 echo -e -n "Number of unlocks:         "
 grep "UNLOCK" $1 | wc -l
-
-#grep "Evicted files" $1
-
-#grep "Maximum number of files reached" $1
-
-#grep "Maximum bytes capacity reached" $1
-
-#echo -e -n "Number of requests served by workers:\n"
-#grep "Worker n." $1

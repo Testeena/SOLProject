@@ -72,7 +72,6 @@ typedef struct storage{
 	int evicted;
 
 	FilepathList* filepaths;
-
 	icl_hash_t* hashtable;
 
 	pthread_mutex_t storagemtx;
@@ -93,7 +92,7 @@ int freeFdList(FdList* list);
 int addFilepath(FilepathList* list , char* filepath);
 int popFilepathList(FilepathList* list, char* poppedpath);
 int deleteFilepathNode(FilepathList* list, char* path);
-int freeFilepathList(FilepathList* list);
+int freeFilepathList(FilepathList* list, icl_hash_t* ht);
 void printFilepaths(FilepathList* list);
 
 Storage* newStorage(int maxfiles, int maxsize);
